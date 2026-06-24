@@ -332,6 +332,99 @@ main {
   color: var(--primary-dark);
 }
 
+.section-description {
+  margin: 0 0 22px;
+  color: var(--muted);
+  font-size: 0.98rem;
+  line-height: 1.7;
+  max-width: 860px;
+}
+
+.review-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 18px;
+  margin-bottom: 24px;
+}
+
+.review-card {
+  background: white;
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  border-radius: 22px;
+  padding: 20px;
+  box-shadow: 0 14px 28px rgba(12, 40, 80, 0.05);
+}
+
+.review-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.review-stars {
+  color: #b45309;
+  font-size: 0.95rem;
+  font-weight: 700;
+}
+
+.review-author {
+  margin-top: 14px;
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.review-form-card {
+  margin-top: 24px;
+}
+
+.review-form-card h3 {
+  margin-top: 0;
+}
+
+.rating-input {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.rating-input label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: #f7eef0;
+  border-radius: 999px;
+  padding: 8px 10px;
+  font-size: 0.95rem;
+  cursor: pointer;
+}
+
+.rating-input input {
+  accent-color: #8b3a3a;
+}
+
+.review-form-card .form-group {
+  margin-bottom: 16px;
+}
+
+.review-form-card textarea {
+  min-height: 120px;
+}
+
+.book-card-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 99, 72, 0.12);
+  color: #c92a2a;
+  border-radius: 999px;
+  padding: 6px 12px;
+  font-size: 0.85rem;
+  font-weight: 700;
+  margin-bottom: 14px;
+}
+
 .book-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
@@ -488,6 +581,23 @@ button.button-secondary {
 
 .hidden {
   display: none !important;
+}
+
+.hidden-section {
+  display: none;
+}
+
+.category-nav .nav-link {
+  color: white;
+  text-decoration: none;
+  font-weight: 700;
+  padding: 8px 10px;
+  opacity: 0.8;
+}
+
+.category-nav .nav-link.active {
+  color: #fcd34d;
+  opacity: 1;
 }
 
 .message {

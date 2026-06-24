@@ -22,24 +22,61 @@
     </div>
 
     <nav class="category-nav">
-      <a href="#books">BOOKS</a>
-      <a href="#">NON BOOKS</a>
-      <a href="#">BESTSELLERS</a>
-      <a href="#">COLLECTIONS</a>
-      <a href="#">BOOK REVIEWS</a>
-      <a href="#">NEW!</a>
-      <a href="#">PRE-ORDERS</a>
-      <a href="#">SALE</a>
+      <a href="#" class="nav-link active" data-section="collections">BOOKS</a>
+      <a href="#" class="nav-link" data-section="bestsellers">BESTSELLERS</a>
+      <a href="#" class="nav-link" data-section="collections">COLLECTIONS</a>
+      <a href="#" class="nav-link" data-section="book-reviews">BOOK REVIEWS</a>
+      <a href="#" class="nav-link" data-section="new-section">NEW!</a>
+      <a href="#" class="nav-link" data-section="preorders">PRE-ORDERS</a>
+      <a href="#" class="nav-link" data-section="sale">SALE</a>
     </nav>
   </header>
 
   <main>
-    <section class="trending-section">
+    <section class="trending-section" id="collections">
       <div class="trending-header">
-        <h2>What's Trending</h2>
+        <h2>Explore Bookverse</h2>
         <button id="load-books" class="button button-secondary">Refresh</button>
       </div>
       <div id="books" class="book-grid"></div>
+    </section>
+
+    <section class="trending-section hidden-section" id="bestsellers">
+      <div class="trending-header">
+        <h2>Best Sellers</h2>
+      </div>
+      <p class="section-description">These are the books customers have bought the most. If a title appears here, it means it has been chosen often by users.</p>
+      <div id="bestSellers" class="book-grid"></div>
+    </section>
+
+    <section class="trending-section hidden-section" id="book-reviews">
+      <div class="trending-header">
+        <h2>Book Reviews</h2>
+      </div>
+      <p class="section-description">Once a book has been ordered and delivered, customers can leave a review. Reviews may include a 1–5 star rating or a written comment about the reading experience.</p>
+    </section>
+
+    <section class="trending-section hidden-section" id="new-section">
+      <div class="trending-header">
+        <h2>New!</h2>
+      </div>
+      <p class="section-description">New arrivals appear here when the admin adds a new book. These titles also show up in the main collection so you can discover the latest arrivals across the site.</p>
+      <div id="newArrivals" class="book-grid"></div>
+    </section>
+
+    <section class="trending-section hidden-section" id="sale">
+      <div class="trending-header">
+        <h2>Sale</h2>
+      </div>
+      <p class="section-description">Selected books are on sale now with discounts like 25% off. These special prices are applied to popular and newly selected titles.</p>
+      <div id="saleBooks" class="book-grid"></div>
+    </section>
+
+    <section class="trending-section hidden-section" id="preorders">
+      <div class="trending-header">
+        <h2>Pre-Orders</h2>
+      </div>
+      <p class="section-description">Upcoming titles available for pre-order will appear here once added by the admin.</p>
     </section>
   </main>
 
@@ -66,19 +103,32 @@
 
   <script>
     const booksContainer = document.getElementById('books');
+    const bestSellersContainer = document.getElementById('bestSellers');
+    const newArrivalsContainer = document.getElementById('newArrivals');
+    const saleBooksContainer = document.getElementById('saleBooks');
     const loadBooksButton = document.getElementById('load-books');
     const searchInput = document.querySelector('.search-bar input');
     const searchButton = document.querySelector('.search-button');
     let loadedItems = [];
 
     const sampleBooks = [
-      { id: 1, description: 'thanks haha', author: 'A. Developer', sell_price: 24.99, img_path: 'https://images.unsplash.com/photo-1512820790803-83ca734da794?auto=format&fit=crop&w=800&q=80', pages: 312 },
-      { id: 2, description: 'Node.js in Action', author: 'M. Johnson', sell_price: 29.50, img_path: 'https://images.unsplash.com/photo-1524995997946-a1c2e315a42f?auto=format&fit=crop&w=800&q=80', pages: 396 },
-      { id: 3, description: 'Design Patterns for Web Apps', author: 'K. Smith', sell_price: 21.00, img_path: 'https://images.unsplash.com/photo-1532012197267-da84d127e765?auto=format&fit=crop&w=800&q=80', pages: 288 },
-      { id: 4, description: 'MySQL & Sequelize Guide', author: 'R. Patel', sell_price: 26.75, img_path: 'https://images.unsplash.com/photo-1517430816045-df4b7de45f8f?auto=format&fit=crop&w=800&q=80', pages: 256 },
-      { id: 5, description: 'E-commerce UX Essentials', author: 'T. Cooper', sell_price: 18.90, img_path: 'https://images.unsplash.com/photo-1515378791036-0648a3ef77b2?auto=format&fit=crop&w=800&q=80', pages: 224 },
-      { id: 6, description: 'Practical API Design', author: 'L. Monroe', sell_price: 32.00, img_path: 'https://images.unsplash.com/photo-1485217988980-11786ced9454?auto=format&fit=crop&w=800&q=80', pages: 340 }
+      { id: 1, title: 'The Secret Chapter', author: 'A. Developer', sell_price: 24.99, img_path: 'https://images.unsplash.com/photo-1512820790803-83ca734da794?auto=format&fit=crop&w=800&q=80', pages: 312, popularity: 85, isNew: false, isDelivered: true },
+      { id: 2, title: 'Node.js in Action', author: 'M. Johnson', sell_price: 29.50, img_path: 'https://images.unsplash.com/photo-1524995997946-a1c2e315a42f?auto=format&fit=crop&w=800&q=80', pages: 396, popularity: 93, isNew: true, isDelivered: false },
+      { id: 3, title: 'Design Patterns for Web Apps', author: 'K. Smith', sell_price: 21.00, img_path: 'https://images.unsplash.com/photo-1532012197267-da84d127e765?auto=format&fit=crop&w=800&q=80', pages: 288, popularity: 78, isNew: false, isDelivered: true },
+      { id: 4, title: 'MySQL & Sequelize Guide', author: 'R. Patel', sell_price: 26.75, img_path: 'https://images.unsplash.com/photo-1517430816045-df4b7de45f8f?auto=format&fit=crop&w=800&q=80', pages: 256, popularity: 65, isNew: true, isDelivered: true },
+      { id: 5, title: 'E-commerce UX Essentials', author: 'T. Cooper', sell_price: 18.90, img_path: 'https://images.unsplash.com/photo-1515378791036-0648a3ef77b2?auto=format&fit=crop&w=800&q=80', pages: 224, popularity: 90, isNew: false, isDelivered: true },
+      { id: 6, title: 'Practical API Design', author: 'L. Monroe', sell_price: 32.00, img_path: 'https://images.unsplash.com/photo-1485217988980-11786ced9454?auto=format&fit=crop&w=800&q=80', pages: 340, popularity: 74, isNew: true, isDelivered: false }
     ];
+
+    const sampleReviews = [
+      { id: 1, bookId: 1, bookTitle: 'The Secret Chapter', rating: 5, comment: 'Loved the storytelling and pacing. Highly recommended for anyone starting a new reading habit.', reviewer: 'Jane' },
+      { id: 2, bookId: 3, bookTitle: 'Design Patterns for Web Apps', rating: 4, comment: 'Helpful examples and clear structure. A solid guide for web developers.', reviewer: 'Mark' }
+    ];
+
+    const reviewForm = document.getElementById('reviewForm');
+    const reviewList = document.getElementById('reviewList');
+    const reviewBookSelect = document.getElementById('reviewBook');
+    const reviewMessageBox = document.getElementById('reviewMessage');
 
     function getStoredUser() {
       const raw = localStorage.getItem('bookverseUser');
@@ -123,18 +173,21 @@
       openSideCart();
     }
 
-    function renderBooks(items) {
-      booksContainer.innerHTML = items.map(item => {
+    function renderBooks(items, targetContainer = booksContainer) {
+      targetContainer.innerHTML = items.map(item => {
         const title = item.description || item.title || 'Untitled book';
         const author = item.author || item.subtitle || 'Unknown author';
-        const price = item.sell_price ? `$${Number(item.sell_price).toFixed(2)}` : item.price ? `$${Number(item.price).toFixed(2)}` : 'Free';
+        const priceValue = item.sell_price ? Number(item.sell_price) : item.price ? Number(item.price) : 0;
+        const price = priceValue ? `$${priceValue.toFixed(2)}` : 'Free';
         const image = item.img_path || item.image || 'https://images.unsplash.com/photo-1512820790803-83ca734da794?auto=format&fit=crop&w=800&q=80';
         const pages = item.pages || item.Stock?.quantity || 'N/A';
+        const sale = item.sale ? `<span class="book-card-badge">${item.sale}% OFF</span>` : '';
         const itemData = encodeURIComponent(JSON.stringify(item));
         return `
           <article class="book-card">
             <img src="${image}" alt="${title}" />
             <div class="book-card-body">
+              ${sale}
               <h3 class="book-card-title">${title}</h3>
               <p class="book-card-author">${author}</p>
               <div class="book-card-meta"><span>${pages} pages</span><span>⭐ 4.5</span></div>
@@ -154,16 +207,46 @@
         const items = rows.length ? rows : sampleBooks;
         loadedItems = items;
         renderBooks(items);
+        renderBestSellers(items);
+        renderNewArrivals(items);
+        renderSaleBooks(items);
+        initReviewForm(items);
       } catch (error) {
         loadedItems = sampleBooks;
         renderBooks(sampleBooks);
+        renderBestSellers(sampleBooks);
+        renderNewArrivals(sampleBooks);
+        renderSaleBooks(sampleBooks);
+        initReviewForm(sampleBooks);
       }
     }
+
+    function showSection(sectionId) {
+      const sections = document.querySelectorAll('main section');
+      sections.forEach(section => {
+        section.classList.toggle('hidden-section', section.id !== sectionId);
+      });
+      const navLinks = document.querySelectorAll('.category-nav .nav-link');
+      navLinks.forEach(link => link.classList.toggle('active', link.dataset.section === sectionId));
+    }
+
+    document.querySelectorAll('.category-nav .nav-link').forEach(link => {
+      link.addEventListener('click', (event) => {
+        event.preventDefault();
+        const sectionId = link.dataset.section;
+        if (sectionId) {
+          showSection(sectionId);
+        }
+      });
+    });
 
     function performSearch() {
       const q = (searchInput && searchInput.value || '').trim().toLowerCase();
       if (!q) {
         renderBooks(loadedItems.length ? loadedItems : sampleBooks);
+        renderBestSellers(loadedItems.length ? loadedItems : sampleBooks);
+        renderNewArrivals(loadedItems.length ? loadedItems : sampleBooks);
+        renderSaleBooks(loadedItems.length ? loadedItems : sampleBooks);
         return;
       }
       const filtered = (loadedItems.length ? loadedItems : sampleBooks).filter(item => {
@@ -172,6 +255,9 @@
         return title.includes(q) || author.includes(q);
       });
       renderBooks(filtered);
+      renderBestSellers(filtered);
+      renderNewArrivals(filtered);
+      renderSaleBooks(filtered);
     }
 
     function renderUserActions() {
@@ -223,6 +309,85 @@
     }
 
     closeSideCart.addEventListener('click', (e) => { e.preventDefault(); closeSideCartFn(); });
+
+    function renderBestSellers(items) {
+      const sorted = [...items].sort((a, b) => (b.popularity || 0) - (a.popularity || 0));
+      renderBooks(sorted.slice(0, 4), bestSellersContainer);
+    }
+
+    function renderNewArrivals(items) {
+      const newest = items.filter(item => item.isNew);
+      renderBooks(newest.length ? newest : items.slice(0, 3), newArrivalsContainer);
+    }
+
+    function renderSaleBooks(items) {
+      const saleItems = items.map(item => ({ ...item, sale: item.sale || (Math.random() > 0.6 ? 25 : null) }))
+        .filter(item => item.sale);
+      renderBooks(saleItems.length ? saleItems : items.slice(0, 3).map(item => ({ ...item, sale: 25 })), saleBooksContainer);
+    }
+
+    function populateReviewBookOptions(items) {
+      const deliveredBooks = items.filter(item => item.isDelivered);
+      if (!reviewBookSelect) return;
+      reviewBookSelect.innerHTML = deliveredBooks.length
+        ? `<option value="">Select delivered book</option>${deliveredBooks.map(book => `<option value="${book.id}">${book.title}</option>`).join('')}`
+        : '<option value="">No delivered books available</option>';
+    }
+
+    function renderReviewList() {
+      if (!reviewList) return;
+      reviewList.innerHTML = sampleReviews.map(review => {
+        return `
+          <article class="review-card">
+            <div class="review-card-header">
+              <h4>${review.bookTitle}</h4>
+              <span class="review-stars">${'★'.repeat(review.rating)}${'☆'.repeat(5 - review.rating)}</span>
+            </div>
+            <p>${review.comment}</p>
+            <div class="review-author">Reviewed by ${review.reviewer}</div>
+          </article>
+        `;
+      }).join('') || '<p class="section-description">No reviews yet. Be the first to review a delivered book.</p>';
+    }
+
+    function initReviewForm(items) {
+      populateReviewBookOptions(items);
+      renderReviewList();
+      if (reviewForm) {
+        reviewForm.addEventListener('submit', handleReviewSubmit);
+      }
+    }
+
+    function handleReviewSubmit(event) {
+      event.preventDefault();
+      if (!reviewBookSelect || !reviewMessageBox) return;
+      const bookId = Number(reviewBookSelect.value);
+      const ratingInput = document.querySelector('input[name="rating"]:checked');
+      const rating = ratingInput ? Number(ratingInput.value) : 5;
+      const comment = document.getElementById('reviewComment').value.trim();
+      if (!bookId || !comment) {
+        reviewMessageBox.textContent = 'Please select a delivered book and enter your comment.';
+        reviewMessageBox.className = 'message error';
+        reviewMessageBox.style.display = 'block';
+        return;
+      }
+      const book = (loadedItems.length ? loadedItems : sampleBooks).find(item => item.id === bookId);
+      const newReview = {
+        id: sampleReviews.length + 1,
+        bookId,
+        bookTitle: book ? book.title : 'Unknown book',
+        rating,
+        comment,
+        reviewer: 'Customer'
+      };
+      sampleReviews.unshift(newReview);
+      renderReviewList();
+      reviewForm.reset();
+      reviewMessageBox.textContent = 'Thank you! Your review was submitted.';
+      reviewMessageBox.className = 'message success';
+      reviewMessageBox.style.display = 'block';
+      setTimeout(() => { reviewMessageBox.style.display = 'none'; }, 3000);
+    }
 
     function renderSideCartItems() {
       const cart = getCart();
