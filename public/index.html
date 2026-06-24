@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Bookverse Store</title>
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <header>
+    <div class="main-header">
+      <div class="brand">Bookverse</div>
+      <div class="search-bar">
+        <input type="text" placeholder="Search Bookverse" aria-label="Search books" />
+        <button class="search-button">🔍</button>
+      </div>
+      <div class="user-actions" id="userActions">
+        <a href="/login">Login/Register</a>
+        <a href="#">Wishlist</a>
+        <a href="/cart" class="cart">Cart <span id="cartCount">0</span></a>
+      </div>
+    </div>
+
+    <nav class="category-nav">
+      <a href="#books">BOOKS</a>
+      <a href="#">NON BOOKS</a>
+      <a href="#">BESTSELLERS</a>
+      <a href="#">COLLECTIONS</a>
+      <a href="#">BOOK REVIEWS</a>
+      <a href="#">NEW!</a>
+      <a href="#">PRE-ORDERS</a>
+      <a href="#">SALE</a>
+    </nav>
+  </header>
+
+  <main>
+    <section class="trending-section">
+      <div class="trending-header">
+        <h2>What's Trending</h2>
+        <button id="load-books" class="button button-secondary">Refresh</button>
+      </div>
+      <div id="books" class="book-grid"></div>
+    </section>
+  </main>
+
+  <!-- Side cart panel -->
+  <aside id="sideCart" class="side-cart" aria-hidden="true">
+    <div class="side-cart-header">
+      <h3>Your Cart</h3>
+      <button id="closeSideCart" class="side-cart-close" aria-label="Close cart">✕</button>
+    </div>
+    <div id="sideCartItems" class="side-cart-items">
+      <div class="cart-empty">Your cart is empty.</div>
+    </div>
+    <div class="side-cart-footer">
+      <div class="side-cart-total">Total: <span id="sideCartTotal">$0.00</span></div>
+      <div class="side-cart-actions">
+        <a href="/cart" class="button button-secondary">View cart</a>
+        <button id="checkoutBtn" class="button button-primary">Checkout</button>
+      </div>
+    </div>
+  </aside>
+
+  <!-- Toast notification -->
+  <div id="cartToast" class="cart-toast hidden" role="status" aria-live="polite"></div>
+
+  <script>
+    const booksContainer = document.getElementById('books');
+    const loadBooksButton = document.getElementById('load-books');
+    const searchInput = document.querySelector('.search-bar input');
+    const searchButton = document.querySelector('.search-button');
+    let loadedItems = [];
+
+    const sampleBooks = [
+      { id: 1, description: 'thanks haha', author: 'A. Developer', sell_price: 24.99, img_path: 'https://images.unsplash.com/photo-1512820790803-83ca734da794?auto=format&fit=crop&w=800&q=80', pages: 312 },
+      { id: 2, description: 'Node.js in Action', author: 'M. Johnson', sell_price: 29.50, img_path: 'https://images.unsplash.com/photo-1524995997946-a1c2e315a42f?auto=format&fit=crop&w=800&q=80', pages: 396 },
+      { id: 3, description: 'Design Patterns for Web Apps', author: 'K. Smith', sell_price: 21.00, img_path: 'https://images.unsplash.com/photo-1532012197267-da84d127e765?auto=format&fit=crop&w=800&q=80', pages: 288 },
+      { id: 4, description: 'MySQL & Sequelize Guide', author: 'R. Patel', sell_price: 26.75, img_path: 'https://images.unsplash.com/photo-1517430816045-df4b7de45f8f?auto=format&fit=crop&w=800&q=80', pages: 256 },
+      { id: 5, description: 'E-commerce UX Essentials', author: 'T. Cooper', sell_price: 18.90, img_path: 'https://images.unsplash.com/photo-1515378791036-0648a3ef77b2?auto=format&fit=crop&w=800&q=80', pages: 224 },
+      { id: 6, description: 'Practical API Design', author: 'L. Monroe', sell_price: 32.00, img_path: 'https://images.unsplash.com/photo-1485217988980-11786ced9454?auto=format&fit=crop&w=800&q=80', pages: 340 }
+    ];
+
+    function getStoredUser() {
+      const raw = localStorage.getItem('bookverseUser');
+      return raw ? JSON.parse(raw) : null;
+    }
+
+    function getCart() {
+      const raw = localStorage.getItem('bookverseCart');
+      return raw ? JSON.parse(raw) : [];
+    }
+
+    function saveCart(cart) {
+      localStorage.setItem('bookverseCart', JSON.stringify(cart));
+      updateCartCount();
+    }
+
+    function updateCartCount() {
+      const cartCount = document.getElementById('cartCount');
+      const cart = getCart();
+      if (cartCount) {
+        cartCount.textContent = cart.reduce((sum, item) => sum + (item.quantity || 0), 0);
+      }
+    }
+
+    function addToCart(item) {
+      const cart = getCart();
+      const existing = cart.find(c => c.item_id === item.item_id || c.item_id === item.id);
+      const payload = {
+        item_id: item.item_id || item.id,
+        description: item.description || item.title,
+        sell_price: item.sell_price || item.price || 0,
+        img_path: item.img_path || item.image || '',
+        quantity: 1
+      };
+      if (existing) {
+        existing.quantity += 1;
+      } else {
+        cart.push(payload);
+      }
+      saveCart(cart);
+      showCartToast('Added to cart: ' + payload.description);
+      openSideCart();
+    }
+
+    function renderBooks(items) {
+      booksContainer.innerHTML = items.map(item => {
+        const title = item.description || item.title || 'Untitled book';
+        const author = item.author || item.subtitle || 'Unknown author';
+        const price = item.sell_price ? `$${Number(item.sell_price).toFixed(2)}` : item.price ? `$${Number(item.price).toFixed(2)}` : 'Free';
+        const image = item.img_path || item.image || 'https://images.unsplash.com/photo-1512820790803-83ca734da794?auto=format&fit=crop&w=800&q=80';
+        const pages = item.pages || item.Stock?.quantity || 'N/A';
+        const itemData = encodeURIComponent(JSON.stringify(item));
+        return `
+          <article class="book-card">
+            <img src="${image}" alt="${title}" />
+            <div class="book-card-body">
+              <h3 class="book-card-title">${title}</h3>
+              <p class="book-card-author">${author}</p>
+              <div class="book-card-meta"><span>${pages} pages</span><span>⭐ 4.5</span></div>
+              <div class="book-card-price">${price}</div>
+              <button class="button button-primary" style="margin-top: 20px;" onclick="addToCart(JSON.parse(decodeURIComponent('${itemData}')))">Add to cart</button>
+            </div>
+          </article>
+        `;
+      }).join('');
+    }
+
+    async function loadBooks() {
+      try {
+        const response = await fetch('/api/v1/items');
+        const data = await response.json();
+        const rows = Array.isArray(data) ? data : data.rows || data.items || data.data || [];
+        const items = rows.length ? rows : sampleBooks;
+        loadedItems = items;
+        renderBooks(items);
+      } catch (error) {
+        loadedItems = sampleBooks;
+        renderBooks(sampleBooks);
+      }
+    }
+
+    function performSearch() {
+      const q = (searchInput && searchInput.value || '').trim().toLowerCase();
+      if (!q) {
+        renderBooks(loadedItems.length ? loadedItems : sampleBooks);
+        return;
+      }
+      const filtered = (loadedItems.length ? loadedItems : sampleBooks).filter(item => {
+        const title = (item.description || item.title || '').toString().toLowerCase();
+        const author = (item.author || item.subtitle || '').toString().toLowerCase();
+        return title.includes(q) || author.includes(q);
+      });
+      renderBooks(filtered);
+    }
+
+    function renderUserActions() {
+      const userActions = document.getElementById('userActions');
+      const raw = localStorage.getItem('bookverseUser');
+      const user = raw ? JSON.parse(raw) : null;
+      if (!user) {
+        return;
+      }
+
+      userActions.innerHTML = `
+        <span class="user-greeting">Hello, ${user.name || 'Customer'}</span>
+        <a href="/profile">My Account</a>
+        <a href="/cart" class="cart">Cart <span id="cartCount">0</span></a>
+        <a href="#" id="logoutButton">Logout</a>
+      `;
+
+      document.getElementById('logoutButton').addEventListener('click', (event) => {
+        event.preventDefault();
+        localStorage.removeItem('bookverseToken');
+        localStorage.removeItem('bookverseUser');
+        window.location.href = '/login';
+      });
+    }
+
+    loadBooksButton.addEventListener('click', loadBooks);
+    renderUserActions();
+    updateCartCount();
+    loadBooks();
+
+    if (searchButton) searchButton.addEventListener('click', performSearch);
+    if (searchInput) searchInput.addEventListener('keyup', (e) => { if (e.key === 'Enter') performSearch(); });
+
+    // Side cart behaviour
+    const sideCart = document.getElementById('sideCart');
+    const sideCartItems = document.getElementById('sideCartItems');
+    const closeSideCart = document.getElementById('closeSideCart');
+    const cartToast = document.getElementById('cartToast');
+
+    function openSideCart() {
+      renderSideCartItems();
+      sideCart.classList.add('open');
+      sideCart.setAttribute('aria-hidden', 'false');
+    }
+
+    function closeSideCartFn() {
+      sideCart.classList.remove('open');
+      sideCart.setAttribute('aria-hidden', 'true');
+    }
+
+    closeSideCart.addEventListener('click', (e) => { e.preventDefault(); closeSideCartFn(); });
+
+    function renderSideCartItems() {
+      const cart = getCart();
+      if (!cart || cart.length === 0) {
+        sideCartItems.innerHTML = '<div class="cart-empty">Your cart is empty.</div>';
+        document.getElementById('sideCartTotal').textContent = '$0.00';
+        return;
+      }
+      const rows = cart.map(it => {
+        const price = it.sell_price ? Number(it.sell_price) : 0;
+        return `
+          <div class="side-cart-row">
+            <img src="${it.img_path || ''}" alt="${it.description || ''}" />
+            <div class="side-cart-row-body">
+              <div class="side-cart-row-title">${it.description}</div>
+              <div class="side-cart-row-meta">Qty: ${it.quantity} • $${(price * it.quantity).toFixed(2)}</div>
+            </div>
+          </div>
+        `;
+      }).join('');
+      sideCartItems.innerHTML = rows;
+      const total = cart.reduce((s, it) => s + ((it.sell_price ? Number(it.sell_price) : 0) * (it.quantity || 1)), 0);
+      document.getElementById('sideCartTotal').textContent = `$${total.toFixed(2)}`;
+    }
+
+    function showCartToast(message, timeout = 2600) {
+      cartToast.textContent = message;
+      cartToast.classList.remove('hidden');
+      cartToast.classList.add('show');
+      setTimeout(() => {
+        cartToast.classList.remove('show');
+        cartToast.classList.add('hidden');
+      }, timeout);
+    }
+
+    // Close side cart when clicking outside on small screens
+    document.addEventListener('click', (e) => {
+      if (!sideCart.classList.contains('open')) return;
+      if (!sideCart.contains(e.target) && !e.target.closest('.cart')) {
+        closeSideCartFn();
+      }
+    });
+  </script>
+</body>
+</html>

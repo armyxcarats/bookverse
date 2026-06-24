@@ -1,0 +1,263 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Bookverse Admin</title>
+  <link rel="stylesheet" href="https://cdn.datatables.net/1.13.6/css/jquery.dataTables.min.css">
+  <link rel="stylesheet" href="/styles.css">
+  <style>
+    .dt-button { margin-right: 8px; }
+    .modal { position: fixed; inset: 0; display: none; align-items: center; justify-content: center; background: rgba(0,0,0,0.4); }
+    .modal .card { width: 760px; max-height: 90vh; overflow-y: auto; padding: 20px; }
+    .image-preview { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+    .image-preview img { width: 88px; height: 88px; object-fit: cover; border: 1px solid #ddd; border-radius: 4px; }
+    .form-row { display: flex; gap: 12px; flex-wrap: wrap; }
+    .form-row label { flex: 1 1 220px; display: block; }
+    .form-row input { width: 100%; box-sizing: border-box; }
+  </style>
+</head>
+<body>
+  <header style="text-align:center; padding:20px; background: #f7fafc;"><h2>Bookverse - Admin</h2></header>
+  <main style="max-width:1100px; margin:20px auto;">
+    <div style="margin-bottom:12px; display:flex; gap:10px; align-items:center; position: relative;">
+      <button id="addBtn" class="button button-primary">Add book</button>
+      <button id="refreshBtn" class="button button-secondary">Refresh</button>
+      <div style="margin-left:auto; display:flex; gap:10px; align-items:center;">
+        <button id="authBtn" class="button button-secondary">Login</button>
+        <button id="openStore" class="button button-secondary" onclick="location.href='/'">Open Store</button>
+      </div>
+    </div>
+    <table id="itemsTable" class="display" style="width:100%"></table>
+  </main>
+
+  <div id="editModal" class="modal">
+    <div class="card">
+      <h3 id="modalTitle">Add Book</h3>
+      <div class="form-row">
+        <label>Title<input id="m-title" type="text"></label>
+        <label>Cost Price<input id="m-cost" type="number" step="0.01"></label>
+      </div>
+      <div class="form-row">
+        <label>Sell Price<input id="m-price" type="number" step="0.01"></label>
+        <label>Quantity<input id="m-quantity" type="number"></label>
+      </div>
+      <label>Images (select multiple)<input id="m-images" type="file" multiple accept="image/png,image/jpeg"></label>
+      <div>
+        <strong>Existing saved images</strong>
+        <div id="existingImages" class="image-preview"></div>
+      </div>
+      <div style="display:flex; gap:10px; margin-top:12px;"><button id="saveBtn" class="button button-primary">Save</button><button id="cancelBtn" class="button button-secondary">Cancel</button></div>
+      <div id="modalMsg" style="margin-top:12px; display:none;" class="message"></div>
+    </div>
+  </div>
+
+  <div id="loginModal" class="modal">
+    <div class="card" style="width:360px;">
+      <h3>Admin Login</h3>
+      <label>Email<input id="adminEmail" type="email" /></label>
+      <label>Password<input id="adminPassword" type="password" /></label>
+      <div style="display:flex; gap:10px; margin-top:12px;"><button id="loginSubmit" class="button button-primary">Login</button><button id="loginCancel" class="button button-secondary">Cancel</button></div>
+      <div id="loginMsg" class="message" style="display:none; margin-top:10px;"></div>
+    </div>
+  </div>
+
+  <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+  <script src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"></script>
+  <script>
+    let table;
+    let editingId = null;
+
+    function getToken() { return localStorage.getItem('bookverseToken'); }
+    function safeUrl(path) {
+      if (!path) return '';
+      return path.startsWith('http') || path.startsWith('/') ? path : '/' + path;
+    }
+
+    function showExistingImages(images = []) {
+      const container = $('#existingImages');
+      container.empty();
+      if (!images.length) {
+        container.text('No saved images yet.');
+        return;
+      }
+      images.forEach(img => {
+        container.append(`<img src="${safeUrl(img.file_path)}" alt="item image">`);
+      });
+    }
+
+    function showModal(edit=false, data={}){
+      editingId = edit ? data.item_id || data.id : null;
+      $('#modalTitle').text(edit ? 'Edit Book' : 'Add Book');
+      $('#m-title').val(data.description || '');
+      $('#m-cost').val(data.cost_price || '');
+      $('#m-price').val(data.sell_price || '');
+      $('#m-quantity').val(data.Stock ? data.Stock.quantity : (data.quantity||0));
+      $('#m-images').val('');
+      showExistingImages(edit ? (data.ItemImages || []) : []);
+      $('#modalMsg').hide();
+      $('#editModal').css('display','flex');
+    }
+    function hideModal(){ $('#editModal').hide(); }
+
+    async function loadItems(){
+      const res = await fetch('/api/v1/items');
+      const data = await res.json();
+      const rows = Array.isArray(data) ? data : data.rows || data.items || data.data || [];
+      const items = rows;
+      if (!table){
+        table = $('#itemsTable').DataTable({
+          data: items,
+          columns: [
+            { title: 'ID', data: 'item_id' },
+            { title: 'Title', data: 'description' },
+            { title: 'Cost', data: 'cost_price', render: v => v ? '$'+Number(v).toFixed(2) : '' },
+            { title: 'Sell Price', data: 'sell_price', render: v => v ? '$'+Number(v).toFixed(2) : '' },
+            { title: 'Qty', data: 'Stock.quantity', defaultContent: '0' },
+            { title: 'Images', data: 'ItemImages', render: arr => Array.isArray(arr) ? arr.length : 0 },
+            { title: 'Actions', data: null, orderable:false, render: () => `<button class='editBtn'>Edit</button> <button class='delBtn'>Delete</button>` }
+          ]
+        });
+
+        $('#itemsTable tbody').on('click','button.editBtn', function(){
+          const row = table.row($(this).parents('tr')).data();
+          showModal(true, row);
+        });
+        $('#itemsTable tbody').on('click','button.delBtn', async function(){
+          const row = table.row($(this).parents('tr')).data();
+          if (!confirm('Delete '+(row.description||row.title))) return;
+          try{
+            const token = getToken();
+            const res = await fetch(`/api/v1/items/${row.item_id}`, { method: 'DELETE', headers: { 'Authorization': `Bearer ${token}` } });
+            if (!res.ok) throw new Error('delete failed');
+            table.row($(this).parents('tr')).remove().draw();
+          }catch(e){ alert('Delete failed. Make sure you are logged in.'); }
+        });
+      } else {
+        table.clear().rows.add(items).draw();
+      }
+    }
+
+    $('#addBtn').on('click', ()=> showModal(false,{}));
+    $('#refreshBtn').on('click', loadItems);
+    $('#cancelBtn').on('click', hideModal);
+
+    $('#saveBtn').on('click', async ()=>{
+      const title = $('#m-title').val();
+      const cost = $('#m-cost').val();
+      const price = $('#m-price').val();
+      const qty = $('#m-quantity').val();
+      const files = $('#m-images')[0].files;
+
+      if (!title || !cost || !price) { $('#modalMsg').text('Title, cost and sell price are required').show(); return; }
+
+      const form = new FormData();
+      form.append('description', title);
+      form.append('cost_price', cost);
+      form.append('sell_price', price);
+      form.append('quantity', qty || 0);
+      for (let i = 0; i < files.length; i++) {
+        form.append('images', files[i]);
+      }
+
+      try{
+        const token = getToken();
+        const headers = new Headers();
+        if (token) headers.append('Authorization', `Bearer ${token}`);
+        const opts = { method: editingId ? 'PUT' : 'POST', headers, body: form };
+        const url = editingId ? `/api/v1/items/${editingId}` : '/api/v1/items';
+        const res = await fetch(url, opts);
+        if (!res.ok) {
+          const text = await res.text();
+          $('#modalMsg').text(text || 'Save failed. Ensure you are logged in and have permission.').show();
+          return;
+        }
+        hideModal();
+        await loadItems();
+      }catch(e){
+        $('#modalMsg').text(e && e.message ? e.message : 'Save failed. Ensure you are logged in and have permission.').show();
+      }
+    });
+
+    function showAdminUI(){
+      $('#itemsTable').show();
+      $('#addBtn, #refreshBtn').show();
+      setAuthUI();
+      loadItems();
+    }
+
+    function hideAdminUI(){
+      $('#itemsTable').hide();
+      $('#addBtn, #refreshBtn').hide();
+    }
+
+    $(document).ready(()=>{
+      setAuthUI();
+      if (getToken()) {
+        showAdminUI();
+      } else {
+        hideAdminUI();
+        showLoginModal();
+      }
+    });
+
+    function setAuthUI() {
+      const btn = document.getElementById('authBtn');
+      if (!btn) return;
+      const token = getToken();
+      if (token) {
+        btn.textContent = 'Logout';
+        btn.onclick = () => {
+          localStorage.removeItem('bookverseToken');
+          localStorage.removeItem('bookverseUser');
+          setAuthUI();
+          hideAdminUI();
+          showLoginModal();
+        };
+      } else {
+        btn.textContent = 'Login';
+        btn.onclick = showLoginModal;
+      }
+    }
+
+    function showLoginModal() {
+      $('#loginMsg').hide();
+      $('#adminEmail').val('');
+      $('#adminPassword').val('');
+      $('#loginModal').css('display', 'flex');
+    }
+
+    function hideLoginModal() {
+      $('#loginModal').hide();
+      $('#loginMsg').hide();
+    }
+
+    $('#loginCancel').on('click', hideLoginModal);
+    $('#loginSubmit').on('click', async () => {
+      const email = $('#adminEmail').val().trim();
+      const password = $('#adminPassword').val();
+      if (!email || !password) {
+        $('#loginMsg').text('Email and password required').show();
+        return;
+      }
+      try {
+        const res = await fetch('/api/v1/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email, password })
+        });
+        const data = await res.json();
+        if (!res.ok) {
+          $('#loginMsg').text(data.message || data.error || 'Login failed').show();
+          return;
+        }
+        localStorage.setItem('bookverseToken', data.token);
+        localStorage.setItem('bookverseUser', JSON.stringify(data.user));
+        hideLoginModal();
+        showAdminUI();
+      } catch (error) {
+        $('#loginMsg').text('Unable to contact server').show();
+      }
+    });
+  </script>
+</body>
+</html>

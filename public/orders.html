@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Bookverse Orders</title>
+  <link rel="stylesheet" href="https://cdn.datatables.net/1.13.6/css/jquery.dataTables.min.css" />
+  <link rel="stylesheet" href="/styles.css" />
+  <style>
+    body { padding: 20px; }
+    .orders-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; }
+    .orders-header h1 { margin: 0; }
+    .message { margin-top: 12px; padding: 12px; border-radius: 12px; background: #f7eef0; color: #3d080d; }
+  </style>
+</head>
+<body>
+  <div class="orders-header">
+    <div>
+      <h1>Order Management</h1>
+      <p>View all orders and delete orders when needed.</p>
+    </div>
+    <div>
+      <a href="/" class="button button-secondary">Store</a>
+    </div>
+  </div>
+  <table id="ordersTable" class="display" style="width:100%"></table>
+  <div id="orderMessage" class="message" style="display:none;"></div>
+
+  <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+  <script src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"></script>
+  <script>
+    let table;
+    const token = localStorage.getItem('bookverseToken');
+
+    function showMessage(text) {
+      $('#orderMessage').text(text).show();
+    }
+
+    async function loadOrders() {
+      if (!token) {
+        showMessage('Please login first.');
+        return;
+      }
+
+      const response = await fetch('/api/v1/orders', {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+
+      if (!response.ok) {
+        const body = await response.json();
+        showMessage(body.error || 'Unable to load orders.');
+        return;
+      }
+
+      const orders = await response.json();
+      if (!table) {
+        table = $('#ordersTable').DataTable({
+          data: orders,
+          columns: [
+            { title: 'Order #', data: 'order_id' },
+            { title: 'Customer', data: 'customer_id' },
+            { title: 'Placed', data: 'date_placed' },
+            { title: 'Shipped', data: 'date_shipped' },
+            { title: 'Items', data: 'items' },
+            { title: 'Total', data: 'total_amount', render: v => v ? '$' + Number(v).toFixed(2) : '$0.00' },
+            { title: 'Actions', data: null, orderable: false, render: () => '<button class="delete-order">Delete</button>' }
+          ]
+        });
+
+        $('#ordersTable tbody').on('click', 'button.delete-order', async function() {
+          const row = table.row($(this).parents('tr')).data();
+          if (!confirm('Delete order #' + row.order_id + '?')) return;
+
+          const res = await fetch('/api/v1/orders/' + row.order_id, {
+            method: 'DELETE',
+            headers: { 'Authorization': `Bearer ${token}` }
+          });
+          const body = await res.json();
+          if (!res.ok) {
+            showMessage(body.error || 'Delete failed');
+            return;
+          }
+          showMessage(body.message || 'Order deleted');
+          loadOrders();
+        });
+      } else {
+        table.clear().rows.add(orders).draw();
+      }
+    }
+
+    loadOrders();
+  </script>
+</body>
+</html>

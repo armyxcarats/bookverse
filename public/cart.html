@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Bookverse Cart</title>
+  <link rel="stylesheet" href="/styles.css" />
+  <style>
+    .cart-page { max-width: 900px; margin: 40px auto; padding: 0 20px; }
+    .cart-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; }
+    .cart-list { width: 100%; border-collapse: collapse; margin-bottom: 24px; }
+    .cart-list th, .cart-list td { padding: 14px; border-bottom: 1px solid rgba(0,0,0,0.08); }
+    .cart-list img { width: 80px; height: 100px; object-fit: cover; border-radius: 12px; }
+    .cart-actions { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; }
+    .button-primary { margin: 0; }
+    .empty-state { padding: 24px; background: white; border: 1px solid rgba(0,0,0,0.06); border-radius: 18px; text-align: center; }
+  </style>
+</head>
+<body>
+  <div class="cart-page">
+    <div class="cart-header">
+      <div>
+        <h1>Your Cart</h1>
+        <p>Review items before checkout.</p>
+      </div>
+      <div>
+        <a href="/" class="button button-secondary">Continue Shopping</a>
+        <a href="/orders" class="button button-secondary">Order History</a>
+      </div>
+    </div>
+
+    <table class="cart-list" id="cartTable">
+      <thead>
+        <tr>
+          <th>Item</th>
+          <th>Price</th>
+          <th>Quantity</th>
+          <th>Total</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+
+    <div class="cart-actions">
+      <div id="cartSummary"></div>
+      <button id="checkoutBtn" class="button button-primary">Checkout</button>
+    </div>
+    <div id="cartMessage" class="message" style="display:none;"></div>
+  </div>
+
+  <script>
+    function getCart() {
+      const raw = localStorage.getItem('bookverseCart');
+      return raw ? JSON.parse(raw) : [];
+    }
+
+    function saveCart(cart) {
+      localStorage.setItem('bookverseCart', JSON.stringify(cart));
+    }
+
+    function showMessage(text, type = 'success') {
+      const el = document.getElementById('cartMessage');
+      el.textContent = text;
+      el.className = type === 'error' ? 'message error' : 'message';
+      el.style.display = 'block';
+    }
+
+    function renderCart() {
+      const cart = getCart();
+      const tbody = document.querySelector('#cartTable tbody');
+      const summary = document.getElementById('cartSummary');
+
+      if (!cart.length) {
+        tbody.innerHTML = '<tr><td colspan="5"><div class="empty-state">Your cart is empty.</div></td></tr>';
+        summary.innerHTML = '';
+        document.getElementById('checkoutBtn').disabled = true;
+        return;
+      }
+
+      document.getElementById('checkoutBtn').disabled = false;
+      let total = 0;
+      tbody.innerHTML = cart.map((item, index) => {
+        const price = Number(item.sell_price || 0);
+        const quantity = Number(item.quantity || 1);
+        const lineTotal = price * quantity;
+        total += lineTotal;
+        return `
+          <tr>
+            <td style="display:flex; align-items:center; gap:14px;"><img src="${item.img_path || 'https://via.placeholder.com/80'}" alt="${item.description}"><div>${item.description}</div></td>
+            <td>$${price.toFixed(2)}</td>
+            <td><input type="number" min="1" value="${quantity}" data-index="${index}" class="qty-input" style="width:70px;"></td>
+            <td>$${lineTotal.toFixed(2)}</td>
+            <td><button class="button button-secondary remove-btn" data-index="${index}">Remove</button></td>
+          </tr>
+        `;
+      }).join('');
+
+      summary.innerHTML = `<strong>Order total:</strong> $${total.toFixed(2)}`;
+      attachCartEvents();
+    }
+
+    function attachCartEvents() {
+      document.querySelectorAll('.qty-input').forEach(input => {
+        input.addEventListener('change', event => {
+          const index = Number(event.target.dataset.index);
+          const cart = getCart();
+          cart[index].quantity = Math.max(1, Number(event.target.value));
+          saveCart(cart);
+          renderCart();
+        });
+      });
+
+      document.querySelectorAll('.remove-btn').forEach(button => {
+        button.addEventListener('click', event => {
+          const index = Number(event.target.dataset.index);
+          const cart = getCart();
+          cart.splice(index, 1);
+          saveCart(cart);
+          renderCart();
+        });
+      });
+    }
+
+    async function checkout() {
+      const userToken = localStorage.getItem('bookverseToken');
+      const user = localStorage.getItem('bookverseUser');
+      const cart = getCart();
+
+      if (!userToken || !user) {
+        window.location.href = '/login';
+        return;
+      }
+      if (!cart.length) {
+        showMessage('Your cart is empty.', 'error');
+        return;
+      }
+
+      try {
+        const res = await fetch('/api/v1/create-order', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${userToken}`
+          },
+          body: JSON.stringify({ cart, user: JSON.parse(user) })
+        });
+        const data = await res.json();
+        if (!res.ok) {
+          showMessage(data.error || 'Checkout failed', 'error');
+          return;
+        }
+
+        localStorage.removeItem('bookverseCart');
+        renderCart();
+        showMessage('Checkout complete! Order ID: ' + data.order_id);
+      } catch (error) {
+        showMessage('Checkout failed. Try again later.', 'error');
+      }
+    }
+
+    document.getElementById('checkoutBtn').addEventListener('click', checkout);
+    renderCart();
+  </script>
+</body>
+</html>
