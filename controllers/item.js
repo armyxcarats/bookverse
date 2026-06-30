@@ -41,7 +41,7 @@ exports.getSingleItem = async (req, res) => {
 // Create item with stock and optional images
 exports.createItem = async (req, res, next) => {
     try {
-        const { description, cost_price, sell_price, quantity, img_path } = req.body;
+        const { description, cost_price, sell_price, quantity, img_path, genre } = req.body;
         const files = req.files || [];
         const imagePath = files.length ? normalizePath(files[0].path) : normalizePath(img_path) || null;
 
@@ -51,6 +51,7 @@ exports.createItem = async (req, res, next) => {
 
         const item = await Item.create({
             description,
+            genre: genre || null,
             cost_price,
             sell_price,
             img_path: imagePath
@@ -84,7 +85,7 @@ exports.createItem = async (req, res, next) => {
 exports.updateItem = async (req, res, next) => {
     try {
         const { id } = req.params;
-        const { description, cost_price, sell_price, quantity, img_path } = req.body;
+        const { description, cost_price, sell_price, quantity, img_path, genre } = req.body;
         const files = req.files || [];
         const imagePath = files.length ? normalizePath(files[0].path) : normalizePath(img_path) || null;
 
@@ -94,6 +95,7 @@ exports.updateItem = async (req, res, next) => {
 
         const updateData = {
             description,
+            genre: genre || null,
             cost_price,
             sell_price
         };

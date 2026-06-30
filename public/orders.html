@@ -58,9 +58,13 @@
           data: orders,
           columns: [
             { title: 'Order #', data: 'order_id' },
-            { title: 'Customer', data: 'customer_id' },
+            { title: 'Customer', data: 'customer_name' },
+            { title: 'Email', data: 'customer_email' },
             { title: 'Placed', data: 'date_placed' },
             { title: 'Shipped', data: 'date_shipped' },
+            { title: 'Status', data: 'status' },
+            { title: 'Address', data: 'shipping_address' },
+            { title: 'Zip Code', data: 'shipping_zipcode' },
             { title: 'Items', data: 'items' },
             { title: 'Total', data: 'total_amount', render: v => v ? '$' + Number(v).toFixed(2) : '$0.00' },
             { title: 'Actions', data: null, orderable: false, render: () => '<button class="delete-order">Delete</button>' }

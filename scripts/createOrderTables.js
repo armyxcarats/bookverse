@@ -6,7 +6,10 @@ const sqls = [
     customer_id INT NOT NULL,
     date_placed DATETIME NOT NULL,
     date_shipped DATETIME,
-    shipping DECIMAL(10,2) DEFAULT 0
+    shipping DECIMAL(10,2) DEFAULT 0,
+    shipping_address VARCHAR(255) NULL,
+    shipping_zipcode VARCHAR(10) NULL,
+    status VARCHAR(32) DEFAULT 'pending'
   ) ENGINE=InnoDB;`,
   `CREATE TABLE IF NOT EXISTS orderline (
     orderline_id INT AUTO_INCREMENT PRIMARY KEY,
@@ -14,7 +17,10 @@ const sqls = [
     item_id INT NOT NULL,
     quantity INT NOT NULL DEFAULT 1,
     FOREIGN KEY (orderinfo_id) REFERENCES orderinfo(orderinfo_id) ON DELETE CASCADE
-  ) ENGINE=InnoDB;`
+  ) ENGINE=InnoDB;`,
+  `ALTER TABLE orderinfo ADD COLUMN IF NOT EXISTS shipping_address VARCHAR(255) NULL;`,
+  `ALTER TABLE orderinfo ADD COLUMN IF NOT EXISTS shipping_zipcode VARCHAR(10) NULL;`,
+  `ALTER TABLE orderinfo ADD COLUMN IF NOT EXISTS status VARCHAR(32) DEFAULT 'pending';`
 ];
 
 (async () => {

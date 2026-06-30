@@ -90,7 +90,7 @@
       <div class="cart-empty">Your cart is empty.</div>
     </div>
     <div class="side-cart-footer">
-      <div class="side-cart-total">Total: <span id="sideCartTotal">$0.00</span></div>
+      <div class="side-cart-total">Total: <span id="sideCartTotal">₱0.00</span></div>
       <div class="side-cart-actions">
         <a href="/cart" class="button button-secondary">View cart</a>
         <button id="checkoutBtn" class="button button-primary">Checkout</button>
@@ -178,7 +178,7 @@
         const title = item.description || item.title || 'Untitled book';
         const author = item.author || item.subtitle || 'Unknown author';
         const priceValue = item.sell_price ? Number(item.sell_price) : item.price ? Number(item.price) : 0;
-        const price = priceValue ? `$${priceValue.toFixed(2)}` : 'Free';
+        const price = priceValue ? `₱${priceValue.toFixed(2)}` : 'Free';
         const image = item.img_path || item.image || 'https://images.unsplash.com/photo-1512820790803-83ca734da794?auto=format&fit=crop&w=800&q=80';
         const pages = item.pages || item.Stock?.quantity || 'N/A';
         const sale = item.sale ? `<span class="book-card-badge">${item.sale}% OFF</span>` : '';
@@ -403,14 +403,14 @@
             <img src="${it.img_path || ''}" alt="${it.description || ''}" />
             <div class="side-cart-row-body">
               <div class="side-cart-row-title">${it.description}</div>
-              <div class="side-cart-row-meta">Qty: ${it.quantity} • $${(price * it.quantity).toFixed(2)}</div>
+              <div class="side-cart-row-meta">Qty: ${it.quantity} • ₱${(price * it.quantity).toFixed(2)}</div>
             </div>
           </div>
         `;
       }).join('');
       sideCartItems.innerHTML = rows;
       const total = cart.reduce((s, it) => s + ((it.sell_price ? Number(it.sell_price) : 0) * (it.quantity || 1)), 0);
-      document.getElementById('sideCartTotal').textContent = `$${total.toFixed(2)}`;
+      document.getElementById('sideCartTotal').textContent = `₱${total.toFixed(2)}`;
     }
 
     function showCartToast(message, timeout = 2600) {

@@ -44,9 +44,20 @@
 
     <div class="cart-actions">
       <div id="cartSummary"></div>
-      <button id="checkoutBtn" class="button button-primary">Checkout</button>
+      <div style="display:flex; gap:10px; align-items:center;">
+        <label style="display:flex; gap:8px; align-items:center;">Amount you will pay: <input id="paymentAmount" type="number" step="0.01" min="0" style="width:140px;"></label>
+        <button id="checkoutBtn" class="button button-primary">Create Order</button>
+      </div>
     </div>
     <div id="cartMessage" class="message" style="display:none;"></div>
+
+    <div id="shippingStep" style="display:none; margin-top:24px;">
+      <h2>Enter shipping details</h2>
+      <label>Shipping Address<textarea id="shippingAddress" rows="3" placeholder="Enter your shipping address"></textarea></label>
+      <label>Zip Code<input id="shippingZipcode" type="text" placeholder="Zip code" /></label>
+      <button id="saveShippingBtn" class="button button-primary">Save Shipping Details</button>
+      <div id="shippingMessage" class="message" style="display:none; margin-top:12px;"></div>
+    </div>
   </div>
 
   <script>
@@ -88,15 +99,15 @@
         return `
           <tr>
             <td style="display:flex; align-items:center; gap:14px;"><img src="${item.img_path || 'https://via.placeholder.com/80'}" alt="${item.description}"><div>${item.description}</div></td>
-            <td>$${price.toFixed(2)}</td>
+            <td>₱${price.toFixed(2)}</td>
             <td><input type="number" min="1" value="${quantity}" data-index="${index}" class="qty-input" style="width:70px;"></td>
-            <td>$${lineTotal.toFixed(2)}</td>
+            <td>₱${lineTotal.toFixed(2)}</td>
             <td><button class="button button-secondary remove-btn" data-index="${index}">Remove</button></td>
           </tr>
         `;
       }).join('');
 
-      summary.innerHTML = `<strong>Order total:</strong> $${total.toFixed(2)}`;
+      summary.innerHTML = `<strong>Order total:</strong> ₱${total.toFixed(2)}`;
       attachCartEvents();
     }
 
@@ -122,6 +133,8 @@
       });
     }
 
+    let currentOrderId = null;
+
     async function checkout() {
       const userToken = localStorage.getItem('bookverseToken');
       const user = localStorage.getItem('bookverseUser');
@@ -136,6 +149,18 @@
         return;
       }
 
+      const paymentAmount = Number(document.getElementById('paymentAmount').value || 0);
+      // Optional frontend validation against cart total
+      const total = cart.reduce((s, it) => s + ((it.sell_price ? Number(it.sell_price) : 0) * (it.quantity || 1)), 0);
+      if (isNaN(paymentAmount) || paymentAmount <= 0) {
+        showMessage('Please enter the amount you will pay.', 'error');
+        return;
+      }
+      if (paymentAmount < total) {
+        showMessage('Insufficient payment amount. Please enter enough to cover the order.', 'error');
+        return;
+      }
+
       try {
         const res = await fetch('/api/v1/create-order', {
           method: 'POST',
@@ -143,7 +168,11 @@
             'Content-Type': 'application/json',
             'Authorization': `Bearer ${userToken}`
           },
-          body: JSON.stringify({ cart, user: JSON.parse(user) })
+          body: JSON.stringify({
+            cart,
+            user: JSON.parse(user),
+            payment_amount: paymentAmount
+          })
         });
         const data = await res.json();
         if (!res.ok) {
@@ -151,15 +180,70 @@
           return;
         }
 
-        localStorage.removeItem('bookverseCart');
-        renderCart();
-        showMessage('Checkout complete! Order ID: ' + data.order_id);
+        currentOrderId = data.order_id;
+        document.getElementById('shippingStep').style.display = 'block';
+        document.getElementById('checkoutBtn').disabled = true;
+        showMessage('Order created successfully. Please enter shipping details to complete checkout. Order ID: ' + data.order_id);
       } catch (error) {
         showMessage('Checkout failed. Try again later.', 'error');
       }
     }
 
+    async function saveShippingDetails() {
+      const userToken = localStorage.getItem('bookverseToken');
+      const shippingAddress = document.getElementById('shippingAddress').value.trim();
+      const shippingZipcode = document.getElementById('shippingZipcode').value.trim();
+      const shippingMessage = document.getElementById('shippingMessage');
+
+      if (!currentOrderId) {
+        shippingMessage.textContent = 'Order not created yet.';
+        shippingMessage.className = 'message error';
+        shippingMessage.style.display = 'block';
+        return;
+      }
+      if (!shippingAddress || !shippingZipcode) {
+        shippingMessage.textContent = 'Please enter both address and zip code.';
+        shippingMessage.className = 'message error';
+        shippingMessage.style.display = 'block';
+        return;
+      }
+
+      try {
+        const res = await fetch(`/api/v1/orders/${currentOrderId}/shipping`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${userToken}`
+          },
+          body: JSON.stringify({
+            shipping_address: shippingAddress,
+            shipping_zipcode: shippingZipcode
+          })
+        });
+        const data = await res.json();
+        if (!res.ok) {
+          shippingMessage.textContent = data.error || 'Unable to save shipping details.';
+          shippingMessage.className = 'message error';
+          shippingMessage.style.display = 'block';
+          return;
+        }
+
+        localStorage.removeItem('bookverseCart');
+        renderCart();
+        document.getElementById('shippingStep').style.display = 'none';
+        document.getElementById('shippingAddress').value = '';
+        document.getElementById('shippingZipcode').value = '';
+        showMessage('Shipping details saved. Your order is complete! Order ID: ' + currentOrderId);
+        currentOrderId = null;
+      } catch (error) {
+        shippingMessage.textContent = 'Unable to save shipping details. Try again later.';
+        shippingMessage.className = 'message error';
+        shippingMessage.style.display = 'block';
+      }
+    }
+
     document.getElementById('checkoutBtn').addEventListener('click', checkout);
+    document.getElementById('saveShippingBtn').addEventListener('click', saveShippingDetails);
     renderCart();
   </script>
 </body>
