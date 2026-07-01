@@ -51,6 +51,7 @@
       <div class="form-row">
         <label>Genre<input id="m-genre" type="text" placeholder="e.g. Fiction, Science"></label>
       </div>
+      <label>Description<textarea id="m-description" rows="4" placeholder="Write a short 2-3 sentence book description"></textarea></label>
       <label>Images (select multiple)<input id="m-images" type="file" multiple accept="image/png,image/jpeg"></label>
       <div>
         <strong>Existing saved images</strong>
@@ -99,6 +100,7 @@
       editingId = edit ? data.item_id || data.id : null;
       $('#modalTitle').text(edit ? 'Edit Book' : 'Add Book');
       $('#m-title').val(data.description || '');
+      $('#m-description').val(data.description_text || '');
       $('#m-cost').val(data.cost_price || '');
       $('#m-price').val(data.sell_price || '');
       $('#m-quantity').val(data.Stock ? data.Stock.quantity : (data.quantity||0));
@@ -121,6 +123,7 @@
             { title: 'ID', data: 'item_id' },
             { title: 'Title', data: 'description' },
             { title: 'Genre', data: 'genre' },
+        { title: 'Description', data: 'description_text', render: d => d ? (d.length > 80 ? d.slice(0, 80) + '...' : d) : '' },
             { title: 'Cost', data: 'cost_price', render: v => v ? '₱'+Number(v).toFixed(2) : '' },
               { title: 'Sell Price', data: 'sell_price', render: v => v ? '₱'+Number(v).toFixed(2) : '' },
             { title: 'Qty', data: 'Stock.quantity', defaultContent: '0' },
@@ -163,6 +166,7 @@
 
       const form = new FormData();
       form.append('description', title);
+      form.append('description_text', $('#m-description').val() || '');
       form.append('genre', $('#m-genre').val() || '');
       form.append('cost_price', cost);
       form.append('sell_price', price);

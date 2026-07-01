@@ -9,6 +9,7 @@ const sqls = [
     shipping DECIMAL(10,2) DEFAULT 0,
     shipping_address VARCHAR(255) NULL,
     shipping_zipcode VARCHAR(10) NULL,
+    shipping_phone VARCHAR(20) NULL,
     status VARCHAR(32) DEFAULT 'pending'
   ) ENGINE=InnoDB;`,
   `CREATE TABLE IF NOT EXISTS orderline (
@@ -20,6 +21,7 @@ const sqls = [
   ) ENGINE=InnoDB;`,
   `ALTER TABLE orderinfo ADD COLUMN IF NOT EXISTS shipping_address VARCHAR(255) NULL;`,
   `ALTER TABLE orderinfo ADD COLUMN IF NOT EXISTS shipping_zipcode VARCHAR(10) NULL;`,
+  `ALTER TABLE orderinfo ADD COLUMN IF NOT EXISTS shipping_phone VARCHAR(20) NULL;`,
   `ALTER TABLE orderinfo ADD COLUMN IF NOT EXISTS status VARCHAR(32) DEFAULT 'pending';`
 ];
 

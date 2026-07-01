@@ -31,6 +31,28 @@
   <script>
     let table;
     const token = localStorage.getItem('bookverseToken');
+    const user = localStorage.getItem('bookverseUser') ? JSON.parse(localStorage.getItem('bookverseUser')) : null;
+
+    // Admin check: only admin can access this page
+    async function checkAdmin() {
+      if (!token || !user) {
+        window.location.href = '/';
+        return false;
+      }
+      try {
+        const res = await fetch('/api/v1/orders', {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (!res.ok && res.status === 403) {
+          window.location.href = '/';
+          return false;
+        }
+      } catch (e) {
+        window.location.href = '/';
+        return false;
+      }
+      return true;
+    }
 
     function showMessage(text) {
       $('#orderMessage').text(text).show();
@@ -92,7 +114,9 @@
       }
     }
 
-    loadOrders();
+    checkAdmin().then(isAdmin => {
+      if (isAdmin) loadOrders();
+    });
   </script>
 </body>
 </html>

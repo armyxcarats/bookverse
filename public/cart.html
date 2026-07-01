@@ -6,245 +6,600 @@
   <title>Bookverse Cart</title>
   <link rel="stylesheet" href="/styles.css" />
   <style>
-    .cart-page { max-width: 900px; margin: 40px auto; padding: 0 20px; }
-    .cart-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; }
-    .cart-list { width: 100%; border-collapse: collapse; margin-bottom: 24px; }
-    .cart-list th, .cart-list td { padding: 14px; border-bottom: 1px solid rgba(0,0,0,0.08); }
-    .cart-list img { width: 80px; height: 100px; object-fit: cover; border-radius: 12px; }
-    .cart-actions { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; }
-    .button-primary { margin: 0; }
-    .empty-state { padding: 24px; background: white; border: 1px solid rgba(0,0,0,0.06); border-radius: 18px; text-align: center; }
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+    body {
+      font-family: system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+      background: #f8f9fc;
+      color: #1e293b;
+    }
+    .cart-page {
+      max-width: 1000px;
+      margin: 40px auto;
+      padding: 0 24px;
+    }
+    .cart-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 16px;
+      margin-bottom: 28px;
+    }
+    .cart-header h1 {
+      font-size: 2rem;
+      font-weight: 700;
+      letter-spacing: -0.01em;
+    }
+    .cart-header p {
+      color: #64748b;
+      margin-top: 4px;
+    }
+    .button {
+      display: inline-block;
+      padding: 10px 20px;
+      border-radius: 40px;
+      font-weight: 500;
+      font-size: 0.95rem;
+      text-decoration: none;
+      background: white;
+      color: #1e293b;
+      border: 1px solid #d1d9e6;
+      transition: all 0.15s ease;
+      cursor: pointer;
+      background: #ffffff;
+      box-shadow: 0 1px 2px rgba(0,0,0,0.02);
+    }
+    .button-secondary {
+      background: #f1f5f9;
+      border-color: #e2e8f0;
+    }
+    .button-secondary:hover {
+      background: #e9edf2;
+      border-color: #cbd5e1;
+    }
+    .button-primary {
+      background: #1e293b;
+      border: 1px solid #1e293b;
+      color: white;
+    }
+    .button-primary:hover {
+      background: #0f172a;
+      border-color: #0f172a;
+    }
+    .cart-list {
+      width: 100%;
+      border-collapse: collapse;
+      background: white;
+      border-radius: 24px;
+      overflow: hidden;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.02);
+      margin-bottom: 24px;
+    }
+    .cart-list th {
+      text-align: left;
+      padding: 18px 16px;
+      font-weight: 600;
+      font-size: 0.85rem;
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+      color: #64748b;
+      border-bottom: 1px solid #eef2f6;
+      background: #fafcff;
+    }
+    .cart-list td {
+      padding: 16px;
+      border-bottom: 1px solid #f1f5f9;
+      vertical-align: middle;
+    }
+    .cart-list tr:last-child td {
+      border-bottom: none;
+    }
+    .cart-list img {
+      width: 72px;
+      height: 96px;
+      object-fit: cover;
+      border-radius: 12px;
+      background: #f1f5f9;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.04);
+    }
+    .item-info {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+    .qty-input {
+      width: 72px;
+      padding: 8px 8px;
+      border-radius: 40px;
+      border: 1px solid #d1d9e6;
+      background: white;
+      font-weight: 500;
+      text-align: center;
+      font-size: 0.95rem;
+    }
+    .qty-input:focus {
+      outline: 2px solid #1e293b;
+      outline-offset: 1px;
+      border-color: transparent;
+    }
+    .remove-btn {
+      background: transparent;
+      border: 1px solid #e2e8f0;
+      color: #475569;
+      padding: 6px 16px;
+      border-radius: 40px;
+      font-size: 0.85rem;
+      transition: 0.1s;
+    }
+    .remove-btn:hover {
+      background: #fee2e2;
+      border-color: #fca5a5;
+      color: #b91c1c;
+    }
+    .cart-actions {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-end;
+      flex-wrap: wrap;
+      gap: 20px;
+      background: white;
+      padding: 24px;
+      border-radius: 24px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.02);
+      margin-top: 8px;
+    }
+    #cartSummary {
+      font-size: 1rem;
+      line-height: 1.6;
+    }
+    #cartSummary strong {
+      font-size: 1.2rem;
+    }
+    .pay-group {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      flex-wrap: wrap;
+    }
+    .pay-group label {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-weight: 500;
+      color: #1e293b;
+    }
+    #paymentAmount {
+      width: 150px;
+      padding: 10px 14px;
+      border-radius: 40px;
+      border: 1px solid #d1d9e6;
+      background: white;
+      font-size: 1rem;
+      font-weight: 500;
+    }
+    #paymentAmount:focus {
+      outline: 2px solid #1e293b;
+      outline-offset: 1px;
+      border-color: transparent;
+    }
+    .message {
+      margin-top: 20px;
+      padding: 14px 20px;
+      border-radius: 40px;
+      background: #ecfdf5;
+      color: #065f46;
+      border: 1px solid #a7f3d0;
+      font-weight: 500;
+    }
+    .message.error {
+      background: #fef2f2;
+      color: #991b1b;
+      border-color: #fecaca;
+    }
+    .empty-state {
+      padding: 40px 20px;
+      text-align: center;
+      color: #64748b;
+    }
+    .receipt-overlay {
+      position: fixed;
+      inset: 0;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      background: rgba(15, 23, 42, 0.65);
+      z-index: 999;
+      padding: 24px;
+    }
+    .receipt-card {
+      width: min(560px, 100%);
+      background: white;
+      border-radius: 28px;
+      padding: 28px;
+      box-shadow: 0 24px 80px rgba(15, 23, 42, 0.18);
+      text-align: left;
+    }
+    .receipt-card h2 {
+      margin: 0 0 10px;
+      font-size: 1.8rem;
+    }
+    .receipt-row {
+      display: flex;
+      justify-content: space-between;
+      margin: 12px 0;
+      font-size: 1rem;
+    }
+    .receipt-row strong {
+      font-weight: 700;
+    }
+    .receipt-actions {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+      margin-top: 22px;
+    }
+    input[type="checkbox"] {
+      width: 18px;
+      height: 18px;
+      accent-color: #1e293b;
+      cursor: pointer;
+    }
+    .flex-buttons {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+    @media (max-width: 700px) {
+      .cart-header { flex-direction: column; align-items: flex-start; }
+      .cart-list th, .cart-list td { padding: 12px 10px; }
+      .item-info { flex-wrap: wrap; }
+    }
   </style>
 </head>
 <body>
-  <div class="cart-page">
-    <div class="cart-header">
-      <div>
-        <h1>Your Cart</h1>
-        <p>Review items before checkout.</p>
-      </div>
-      <div>
-        <a href="/" class="button button-secondary">Continue Shopping</a>
-        <a href="/orders" class="button button-secondary">Order History</a>
-      </div>
+<div class="cart-page">
+  <div class="cart-header">
+    <div>
+      <h1>Your Cart</h1>
+      <p>Review items before checkout.</p>
     </div>
-
-    <table class="cart-list" id="cartTable">
-      <thead>
-        <tr>
-          <th>Item</th>
-          <th>Price</th>
-          <th>Quantity</th>
-          <th>Total</th>
-          <th></th>
-        </tr>
-      </thead>
-      <tbody></tbody>
-    </table>
-
-    <div class="cart-actions">
-      <div id="cartSummary"></div>
-      <div style="display:flex; gap:10px; align-items:center;">
-        <label style="display:flex; gap:8px; align-items:center;">Amount you will pay: <input id="paymentAmount" type="number" step="0.01" min="0" style="width:140px;"></label>
-        <button id="checkoutBtn" class="button button-primary">Create Order</button>
-      </div>
-    </div>
-    <div id="cartMessage" class="message" style="display:none;"></div>
-
-    <div id="shippingStep" style="display:none; margin-top:24px;">
-      <h2>Enter shipping details</h2>
-      <label>Shipping Address<textarea id="shippingAddress" rows="3" placeholder="Enter your shipping address"></textarea></label>
-      <label>Zip Code<input id="shippingZipcode" type="text" placeholder="Zip code" /></label>
-      <button id="saveShippingBtn" class="button button-primary">Save Shipping Details</button>
-      <div id="shippingMessage" class="message" style="display:none; margin-top:12px;"></div>
+    <div style="display:flex; gap:10px; flex-wrap:wrap;">
+      <a href="/" class="button button-secondary">Continue Shopping</a>
+      <a href="/my-orders" class="button button-secondary">My Orders</a>
     </div>
   </div>
 
-  <script>
-    function getCart() {
-      const raw = localStorage.getItem('bookverseCart');
-      return raw ? JSON.parse(raw) : [];
+  <table class="cart-list" id="cartTable">
+    <thead>
+      <tr>
+        <th style="width:40px;"><label><input id="selectAll" type="checkbox" checked></label></th>
+        <th>Item</th>
+        <th style="width:100px;">Price</th>
+        <th style="width:120px;">Quantity</th>
+        <th style="width:120px;">Total</th>
+        <th style="width:100px;"></th>
+      </tr>
+    </thead>
+    <tbody></tbody>
+  </table>
+
+  <div class="cart-actions">
+    <div id="cartSummary"></div>
+    <div class="pay-group">
+      <button id="selectAllBtn" class="button button-secondary" type="button">Select all</button>
+      <button id="paySelectedBtn" class="button button-primary" type="button">Pay</button>
+      <label>Amount you will pay:
+        <input id="paymentAmount" type="number" step="0.01" min="0" placeholder="0.00" autocomplete="off">
+      </label>
+    </div>
+  </div>
+  <div id="cartMessage" class="message" style="display:none;"></div>
+  <div id="receiptOverlay" class="receipt-overlay">
+    <div class="receipt-card">
+      <h2>Payment completed</h2>
+      <p id="receiptMessage" style="margin:0 0 20px; color:#334155;">Your payment was successful.</p>
+      <div class="receipt-row"><span>Selected total</span><strong id="receiptDue">₱0.00</strong></div>
+      <div class="receipt-row"><span>Amount paid</span><strong id="receiptTotal">₱0.00</strong></div>
+      <div class="receipt-row"><span>Change</span><strong id="receiptChange">₱0.00</strong></div>
+      <div class="receipt-actions">
+        <button id="receiptCloseBtn" class="button button-secondary" type="button">Close</button>
+        <a href="/my-orders" class="button button-primary">View My Orders</a>
+        <a href="/" class="button button-secondary">Continue Shopping</a>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  // ------- Helpers ----------
+  function getCart() {
+    const raw = localStorage.getItem('bookverseCart');
+    const cart = raw ? JSON.parse(raw) : [];
+    return cart.map(item => ({
+      selected: typeof item.selected === 'boolean' ? item.selected : true,
+      ...item
+    }));
+  }
+
+  function saveCart(cart) {
+    localStorage.setItem('bookverseCart', JSON.stringify(cart));
+  }
+
+  function showMessage(text, type = 'success') {
+    const el = document.getElementById('cartMessage');
+    el.textContent = text;
+    el.className = `message ${type === 'error' ? 'error' : ''}`;
+    el.style.display = 'block';
+    clearTimeout(el._hideTimer);
+    el._hideTimer = setTimeout(() => { el.style.display = 'none'; }, 5000);
+  }
+
+  function showHtmlMessage(html, type = 'success') {
+    const el = document.getElementById('cartMessage');
+    el.innerHTML = html;
+    el.className = `message ${type === 'error' ? 'error' : ''}`;
+    el.style.display = 'block';
+    clearTimeout(el._hideTimer);
+    el._hideTimer = setTimeout(() => { el.style.display = 'none'; }, 5000);
+  }
+
+  function showReceipt({ total, paid, change }) {
+    const overlay = document.getElementById('receiptOverlay');
+    if (!overlay) return;
+    document.getElementById('receiptDue').textContent = `₱${Number(total).toFixed(2)}`;
+    document.getElementById('receiptTotal').textContent = `₱${Number(paid).toFixed(2)}`;
+    document.getElementById('receiptChange').textContent = `₱${Number(change).toFixed(2)}`;
+    overlay.style.display = 'flex';
+  }
+
+  function hideReceipt() {
+    const overlay = document.getElementById('receiptOverlay');
+    if (!overlay) return;
+    overlay.style.display = 'none';
+  }
+
+  function getTotals(cart) {
+    const total = cart.reduce((sum, item) => {
+      const price = Number(item.sell_price || 0);
+      const qty = Number(item.quantity || 1);
+      return sum + price * qty;
+    }, 0);
+    const selectedTotal = cart.reduce((sum, item) => {
+      if (!item.selected) return sum;
+      const price = Number(item.sell_price || 0);
+      const qty = Number(item.quantity || 1);
+      return sum + price * qty;
+    }, 0);
+    const selectedCount = cart.filter(item => item.selected).length;
+    return {
+      total: Number(total.toFixed(2)),
+      selectedTotal: Number(selectedTotal.toFixed(2)),
+      selectedCount
+    };
+  }
+
+  // ------- Render ----------
+  function renderCart() {
+    const cart = getCart();
+    const tbody = document.querySelector('#cartTable tbody');
+    const summary = document.getElementById('cartSummary');
+
+    if (!cart.length) {
+      tbody.innerHTML = `<tr><td colspan="6"><div class="empty-state">Your cart is empty.</div></td></tr>`;
+      summary.innerHTML = '';
+      document.getElementById('selectAll').checked = false;
+      document.getElementById('selectAllBtn').textContent = 'Select all';
+      return;
     }
 
-    function saveCart(cart) {
-      localStorage.setItem('bookverseCart', JSON.stringify(cart));
+    const { total, selectedTotal, selectedCount } = getTotals(cart);
+    const allSelected = selectedCount === cart.length;
+    document.getElementById('selectAll').checked = allSelected;
+    document.getElementById('selectAllBtn').textContent = allSelected ? 'Deselect all' : 'Select all';
+
+    tbody.innerHTML = cart.map((item, index) => {
+      const price = Number(item.sell_price || 0);
+      const quantity = Number(item.quantity || 1);
+      const lineTotal = price * quantity;
+      const imgSrc = item.img_path || 'https://via.placeholder.com/80x100?text=Book';
+      return `
+        <tr>
+          <td><label><input type="checkbox" class="select-item" data-index="${index}" ${item.selected ? 'checked' : ''}></label></td>
+          <td>
+            <div class="item-info">
+              <img src="${imgSrc}" alt="${item.description || 'Book'}">
+              <span>${item.description || 'Untitled'}</span>
+            </div>
+          </td>
+          <td>₱${price.toFixed(2)}</td>
+          <td><input type="number" min="1" value="${quantity}" data-index="${index}" class="qty-input"></td>
+          <td>₱${lineTotal.toFixed(2)}</td>
+          <td><button class="button remove-btn" data-index="${index}">Remove</button></td>
+        </tr>
+      `;
+    }).join('');
+
+    summary.innerHTML = `
+      <strong>Order total:</strong> ₱${total.toFixed(2)}<br>
+      <small>Selected total: ₱${selectedTotal.toFixed(2)} (${selectedCount}/${cart.length} items selected)</small>
+    `;
+
+    attachCartEvents();
+    const paymentInput = document.getElementById('paymentAmount');
+    if (paymentInput) {
+      paymentInput.value = '';
     }
+  }
 
-    function showMessage(text, type = 'success') {
-      const el = document.getElementById('cartMessage');
-      el.textContent = text;
-      el.className = type === 'error' ? 'message error' : 'message';
-      el.style.display = 'block';
-    }
-
-    function renderCart() {
-      const cart = getCart();
-      const tbody = document.querySelector('#cartTable tbody');
-      const summary = document.getElementById('cartSummary');
-
-      if (!cart.length) {
-        tbody.innerHTML = '<tr><td colspan="5"><div class="empty-state">Your cart is empty.</div></td></tr>';
-        summary.innerHTML = '';
-        document.getElementById('checkoutBtn').disabled = true;
-        return;
-      }
-
-      document.getElementById('checkoutBtn').disabled = false;
-      let total = 0;
-      tbody.innerHTML = cart.map((item, index) => {
-        const price = Number(item.sell_price || 0);
-        const quantity = Number(item.quantity || 1);
-        const lineTotal = price * quantity;
-        total += lineTotal;
-        return `
-          <tr>
-            <td style="display:flex; align-items:center; gap:14px;"><img src="${item.img_path || 'https://via.placeholder.com/80'}" alt="${item.description}"><div>${item.description}</div></td>
-            <td>₱${price.toFixed(2)}</td>
-            <td><input type="number" min="1" value="${quantity}" data-index="${index}" class="qty-input" style="width:70px;"></td>
-            <td>₱${lineTotal.toFixed(2)}</td>
-            <td><button class="button button-secondary remove-btn" data-index="${index}">Remove</button></td>
-          </tr>
-        `;
-      }).join('');
-
-      summary.innerHTML = `<strong>Order total:</strong> ₱${total.toFixed(2)}`;
-      attachCartEvents();
-    }
-
-    function attachCartEvents() {
-      document.querySelectorAll('.qty-input').forEach(input => {
-        input.addEventListener('change', event => {
-          const index = Number(event.target.dataset.index);
-          const cart = getCart();
-          cart[index].quantity = Math.max(1, Number(event.target.value));
-          saveCart(cart);
-          renderCart();
-        });
-      });
-
-      document.querySelectorAll('.remove-btn').forEach(button => {
-        button.addEventListener('click', event => {
-          const index = Number(event.target.dataset.index);
-          const cart = getCart();
-          cart.splice(index, 1);
-          saveCart(cart);
-          renderCart();
-        });
-      });
-    }
-
-    let currentOrderId = null;
-
-    async function checkout() {
-      const userToken = localStorage.getItem('bookverseToken');
-      const user = localStorage.getItem('bookverseUser');
-      const cart = getCart();
-
-      if (!userToken || !user) {
-        window.location.href = '/login';
-        return;
-      }
-      if (!cart.length) {
-        showMessage('Your cart is empty.', 'error');
-        return;
-      }
-
-      const paymentAmount = Number(document.getElementById('paymentAmount').value || 0);
-      // Optional frontend validation against cart total
-      const total = cart.reduce((s, it) => s + ((it.sell_price ? Number(it.sell_price) : 0) * (it.quantity || 1)), 0);
-      if (isNaN(paymentAmount) || paymentAmount <= 0) {
-        showMessage('Please enter the amount you will pay.', 'error');
-        return;
-      }
-      if (paymentAmount < total) {
-        showMessage('Insufficient payment amount. Please enter enough to cover the order.', 'error');
-        return;
-      }
-
-      try {
-        const res = await fetch('/api/v1/create-order', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${userToken}`
-          },
-          body: JSON.stringify({
-            cart,
-            user: JSON.parse(user),
-            payment_amount: paymentAmount
-          })
-        });
-        const data = await res.json();
-        if (!res.ok) {
-          showMessage(data.error || 'Checkout failed', 'error');
-          return;
-        }
-
-        currentOrderId = data.order_id;
-        document.getElementById('shippingStep').style.display = 'block';
-        document.getElementById('checkoutBtn').disabled = true;
-        showMessage('Order created successfully. Please enter shipping details to complete checkout. Order ID: ' + data.order_id);
-      } catch (error) {
-        showMessage('Checkout failed. Try again later.', 'error');
-      }
-    }
-
-    async function saveShippingDetails() {
-      const userToken = localStorage.getItem('bookverseToken');
-      const shippingAddress = document.getElementById('shippingAddress').value.trim();
-      const shippingZipcode = document.getElementById('shippingZipcode').value.trim();
-      const shippingMessage = document.getElementById('shippingMessage');
-
-      if (!currentOrderId) {
-        shippingMessage.textContent = 'Order not created yet.';
-        shippingMessage.className = 'message error';
-        shippingMessage.style.display = 'block';
-        return;
-      }
-      if (!shippingAddress || !shippingZipcode) {
-        shippingMessage.textContent = 'Please enter both address and zip code.';
-        shippingMessage.className = 'message error';
-        shippingMessage.style.display = 'block';
-        return;
-      }
-
-      try {
-        const res = await fetch(`/api/v1/orders/${currentOrderId}/shipping`, {
-          method: 'PUT',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${userToken}`
-          },
-          body: JSON.stringify({
-            shipping_address: shippingAddress,
-            shipping_zipcode: shippingZipcode
-          })
-        });
-        const data = await res.json();
-        if (!res.ok) {
-          shippingMessage.textContent = data.error || 'Unable to save shipping details.';
-          shippingMessage.className = 'message error';
-          shippingMessage.style.display = 'block';
-          return;
-        }
-
-        localStorage.removeItem('bookverseCart');
-        renderCart();
-        document.getElementById('shippingStep').style.display = 'none';
-        document.getElementById('shippingAddress').value = '';
-        document.getElementById('shippingZipcode').value = '';
-        showMessage('Shipping details saved. Your order is complete! Order ID: ' + currentOrderId);
-        currentOrderId = null;
-      } catch (error) {
-        shippingMessage.textContent = 'Unable to save shipping details. Try again later.';
-        shippingMessage.className = 'message error';
-        shippingMessage.style.display = 'block';
-      }
-    }
-
-    document.getElementById('checkoutBtn').addEventListener('click', checkout);
-    document.getElementById('saveShippingBtn').addEventListener('click', saveShippingDetails);
+  // ------- attach events ----------
+  function updateCartItem(index, updates) {
+    const cart = getCart();
+    cart[index] = { ...cart[index], ...updates };
+    saveCart(cart);
     renderCart();
-  </script>
+  }
+
+  function attachCartEvents() {
+    document.querySelectorAll('.qty-input').forEach(input => {
+      input.removeEventListener('change', handleQtyChange);
+      input.addEventListener('change', handleQtyChange);
+    });
+
+    document.querySelectorAll('.remove-btn').forEach(btn => {
+      btn.removeEventListener('click', handleRemove);
+      btn.addEventListener('click', handleRemove);
+    });
+
+    document.querySelectorAll('.select-item').forEach(chk => {
+      chk.removeEventListener('change', handleSelect);
+      chk.addEventListener('change', handleSelect);
+    });
+
+    document.getElementById('selectAll').removeEventListener('change', handleSelectAll);
+    document.getElementById('selectAll').addEventListener('change', handleSelectAll);
+  }
+
+  function handleQtyChange(e) {
+    const index = Number(e.target.dataset.index);
+    let val = Math.max(1, Number(e.target.value));
+    const cart = getCart();
+    const item = cart[index];
+    if (item && item.stock_quantity != null && val > Number(item.stock_quantity)) {
+      val = Number(item.stock_quantity);
+      e.target.value = val;
+      showMessage(`Only ${val} item(s) available for ${item.description || 'this item'}.`, 'error');
+    }
+    updateCartItem(index, { quantity: val });
+  }
+
+  function handleRemove(e) {
+    const index = Number(e.target.dataset.index);
+    const cart = getCart();
+    cart.splice(index, 1);
+    saveCart(cart);
+    renderCart();
+  }
+
+  function handleSelect(e) {
+    const index = Number(e.target.dataset.index);
+    updateCartItem(index, { selected: e.target.checked });
+  }
+
+  function handleSelectAll(e) {
+    const checked = e.target.checked;
+    const cart = getCart().map(item => ({ ...item, selected: checked }));
+    saveCart(cart);
+    renderCart();
+  }
+
+  // ----------- PAY / CHECKOUT - FIXED -----------
+  async function checkout() {
+    const userToken = localStorage.getItem('bookverseToken');
+    const userRaw = localStorage.getItem('bookverseUser');
+    
+    // Get ALL items from cart
+    const allCart = getCart();
+    
+    // Filter to ONLY selected items (checked checkboxes)
+    const selectedCart = allCart.filter(item => item.selected === true);
+
+    if (!userToken || !userRaw) {
+      window.location.href = '/login';
+      return;
+    }
+    
+    if (!selectedCart.length) {
+      showMessage('Please select at least one item to pay.', 'error');
+      return;
+    }
+
+    // Get payment amount from input and normalize it
+    const paymentInput = document.getElementById('paymentAmount');
+    const rawValue = paymentInput.value.trim().replace(/[^0-9.]/g, '');
+    const paymentAmount = Number(rawValue);
+
+    // Calculate total for selected items only
+    const selectedTotal = selectedCart.reduce((sum, item) => {
+        const price = parseFloat(item.sell_price) || 0;
+        const qty = parseInt(item.quantity, 10) || 1;
+        return sum + price * qty;
+      }, 0);
+
+      const totalRounded = Number(selectedTotal.toFixed(2));
+
+      // Validate payment amount
+      if (isNaN(paymentAmount) || paymentAmount <= 0) {
+        showMessage('Please enter a valid payment amount.', 'error');
+        return;
+      }
+
+      const paymentRounded = Number(paymentAmount.toFixed(2));
+      const paymentCents = Math.round(paymentRounded * 100);
+      const totalCents = Math.round(totalRounded * 100);
+      if (paymentCents < totalCents) {
+        showMessage(`Insufficient payment. Selected items total: ₱${totalRounded.toFixed(2)}, you entered: ₱${paymentRounded.toFixed(2)}`, 'error');
+        return;
+      }
+
+    try {
+      const res = await fetch('/api/v1/create-order', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${userToken}`
+        },
+        body: JSON.stringify({
+          cart: selectedCart,
+          user: JSON.parse(userRaw),
+          payment_amount: paymentRounded,
+          shipping_cost: 0
+        })
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        showMessage(data.error || 'Checkout failed', 'error');
+        return;
+      }
+
+      const remainingCart = allCart.filter(item => !item.selected);
+      saveCart(remainingCart);
+      renderCart();
+      const changeAmount = Number((paymentRounded - totalRounded).toFixed(2));
+      showReceipt({ total: totalRounded, paid: paymentRounded, change: changeAmount });
+    } catch (err) {
+      showMessage('Checkout failed. Please try again later.', 'error');
+    }
+  }
+
+  // ----------- Bind global UI ----------
+  document.getElementById('selectAllBtn').addEventListener('click', () => {
+    const cart = getCart();
+    const allSelected = cart.length > 0 && cart.every(item => item.selected);
+    const updated = cart.map(item => ({ ...item, selected: !allSelected }));
+    saveCart(updated);
+    renderCart();
+  });
+
+  document.getElementById('paySelectedBtn').addEventListener('click', checkout);
+
+  document.getElementById('paymentAmount').addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      checkout();
+    }
+  });
+
+  document.getElementById('receiptCloseBtn').addEventListener('click', hideReceipt);
+  document.getElementById('receiptOverlay').addEventListener('click', (e) => {
+    if (e.target === e.currentTarget) hideReceipt();
+  });
+
+  renderCart();
+</script>
 </body>
 </html>

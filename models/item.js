@@ -9,6 +9,10 @@ module.exports = (sequelize, DataTypes) => {
             type: DataTypes.STRING,
             allowNull: false
         },
+        description_text: {
+            type: DataTypes.TEXT,
+            allowNull: true
+        },
         genre: {
             type: DataTypes.STRING,
             allowNull: true

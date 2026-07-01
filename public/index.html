@@ -5,6 +5,20 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Bookverse Store</title>
   <link rel="stylesheet" href="/styles.css">
+  <style>
+    .genre-group { margin-bottom: 36px; }
+    .genre-group-title { margin: 0 0 16px; font-size: 1.5rem; color: #432222; }
+    .book-card-genre { color: #7a5c3f; font-size: 0.9rem; margin: 8px 0; }
+    .book-card { cursor: pointer; }
+    .book-preview-modal { position: fixed; inset: 0; display: none; align-items: center; justify-content: center; background: rgba(255,255,255,0.97); z-index: 50; }
+    .book-preview-modal.open { display: flex; }
+    .book-preview-card { width: min(840px, calc(100% - 40px)); background: #fff; border-radius: 24px; overflow: hidden; box-shadow: 0 24px 60px rgba(0,0,0,0.16); display: grid; grid-template-columns: 1fr 1fr; gap: 0; }
+    .book-preview-card img { width: 100%; height: 100%; object-fit: cover; }
+    .book-preview-content { padding: 28px; display: flex; flex-direction: column; gap: 16px; background: #fff; }
+    .book-preview-close { position: absolute; top: 20px; right: 24px; padding: 12px 16px; border-radius: 999px; border: none; background: white; cursor: pointer; font-size: 1rem; }
+    .book-preview-buttons { display: flex; gap: 10px; flex-wrap: wrap; margin-top: auto; }
+    .book-preview-description { line-height: 1.7; color: #333; }
+  </style>
 </head>
 <body>
   <header>
@@ -80,6 +94,29 @@
     </section>
   </main>
 
+  <div id="bookPreviewModal" class="book-preview-modal" aria-hidden="true">
+    <div class="book-preview-card">
+      <img id="previewImage" src="" alt="Book preview image" />
+      <div class="book-preview-content">
+        <button class="book-preview-close" type="button" onclick="closeBookPreview()">✕</button>
+        <h2 id="previewTitle"></h2>
+        <div id="previewGenre" class="book-card-genre"></div>
+        <div id="previewAuthor" style="font-weight:600;color:#5b4a3d;"></div>
+        <div id="previewPrice" style="font-size:1.3rem;font-weight:700;color:#2f2f2f;"></div>
+        <p id="previewDescription" class="book-preview-description"></p>
+        <div style="display:flex; align-items:center; gap:12px; flex-wrap: wrap;">
+          <label style="display:flex; align-items:center; gap:8px; margin:0;">Qty:<input id="previewQuantity" type="number" min="1" value="1" style="width:64px; padding:8px; border-radius:10px; border:1px solid #ddd;" /></label>
+          <div id="previewStockInfo" style="font-size:0.95rem; color:#555;">Available: 1+</div>
+        </div>
+        <div id="previewQuantityError" style="color:#b3312c; font-size:0.95rem; display:none; margin-top:8px;"></div>
+        <div class="book-preview-buttons">
+          <button class="button button-primary" id="previewAddBtn" type="button">Add to cart</button>
+          <button class="button button-secondary" type="button" onclick="closeBookPreview()">Back to shopping</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- Side cart panel -->
   <aside id="sideCart" class="side-cart" aria-hidden="true">
     <div class="side-cart-header">
@@ -112,12 +149,12 @@
     let loadedItems = [];
 
     const sampleBooks = [
-      { id: 1, title: 'The Secret Chapter', author: 'A. Developer', sell_price: 24.99, img_path: 'https://images.unsplash.com/photo-1512820790803-83ca734da794?auto=format&fit=crop&w=800&q=80', pages: 312, popularity: 85, isNew: false, isDelivered: true },
-      { id: 2, title: 'Node.js in Action', author: 'M. Johnson', sell_price: 29.50, img_path: 'https://images.unsplash.com/photo-1524995997946-a1c2e315a42f?auto=format&fit=crop&w=800&q=80', pages: 396, popularity: 93, isNew: true, isDelivered: false },
-      { id: 3, title: 'Design Patterns for Web Apps', author: 'K. Smith', sell_price: 21.00, img_path: 'https://images.unsplash.com/photo-1532012197267-da84d127e765?auto=format&fit=crop&w=800&q=80', pages: 288, popularity: 78, isNew: false, isDelivered: true },
-      { id: 4, title: 'MySQL & Sequelize Guide', author: 'R. Patel', sell_price: 26.75, img_path: 'https://images.unsplash.com/photo-1517430816045-df4b7de45f8f?auto=format&fit=crop&w=800&q=80', pages: 256, popularity: 65, isNew: true, isDelivered: true },
-      { id: 5, title: 'E-commerce UX Essentials', author: 'T. Cooper', sell_price: 18.90, img_path: 'https://images.unsplash.com/photo-1515378791036-0648a3ef77b2?auto=format&fit=crop&w=800&q=80', pages: 224, popularity: 90, isNew: false, isDelivered: true },
-      { id: 6, title: 'Practical API Design', author: 'L. Monroe', sell_price: 32.00, img_path: 'https://images.unsplash.com/photo-1485217988980-11786ced9454?auto=format&fit=crop&w=800&q=80', pages: 340, popularity: 74, isNew: true, isDelivered: false }
+      { id: 1, title: 'The Secret Chapter', author: 'A. Developer', genre: 'Fiction', sell_price: 24.99, description_text: 'A mysterious novel about a hidden manuscript that changes the life of a young reader. It blends humor, suspense, and subtle lessons for anyone who enjoys thoughtful fiction.', img_path: 'https://images.unsplash.com/photo-1512820790803-83ca734da794?auto=format&fit=crop&w=800&q=80', pages: 312, popularity: 85, isNew: false, isDelivered: true },
+      { id: 2, title: 'Node.js in Action', author: 'M. Johnson', genre: 'Technology', sell_price: 29.50, description_text: 'This hands-on guide walks you through building modern Node.js applications with real-world examples and best practices. Great for developers who want to make server-side JavaScript powerful and productive.', img_path: 'https://images.unsplash.com/photo-1524995997946-a1c2e315a42f?auto=format&fit=crop&w=800&q=80', pages: 396, popularity: 93, isNew: true, isDelivered: false },
+      { id: 3, title: 'Design Patterns for Web Apps', author: 'K. Smith', genre: 'Technology', sell_price: 21.00, description_text: 'A practical introduction to design patterns that help you build scalable and maintainable web applications. The book explains each pattern with code samples and real architecture advice.', img_path: 'https://images.unsplash.com/photo-1532012197267-da84d127e765?auto=format&fit=crop&w=800&q=80', pages: 288, popularity: 78, isNew: false, isDelivered: true },
+      { id: 4, title: 'MySQL & Sequelize Guide', author: 'R. Patel', genre: 'Technology', sell_price: 26.75, description_text: 'A complete walkthrough for building Node.js apps with MySQL using Sequelize ORM. It covers schema modeling, associations, queries, and deployment with clear examples.', img_path: 'https://images.unsplash.com/photo-1517430816045-df4b7de45f8f?auto=format&fit=crop&w=800&q=80', pages: 256, popularity: 65, isNew: true, isDelivered: true },
+      { id: 5, title: 'E-commerce UX Essentials', author: 'T. Cooper', genre: 'Business', sell_price: 18.90, description_text: 'A practical resource for designing great online shopping experiences. Learn how product pages, checkout flows, and search interactions boost sales and customer satisfaction.', img_path: 'https://images.unsplash.com/photo-1515378791036-0648a3ef77b2?auto=format&fit=crop&w=800&q=80', pages: 224, popularity: 90, isNew: false, isDelivered: true },
+      { id: 6, title: 'Practical API Design', author: 'L. Monroe', genre: 'Business', sell_price: 32.00, description_text: 'A thoughtful book on designing clean APIs for modern apps. It explains principles for reliable endpoints, versioning, error handling, and developer-friendly documentation.', img_path: 'https://images.unsplash.com/photo-1485217988980-11786ced9454?auto=format&fit=crop&w=800&q=80', pages: 340, popularity: 74, isNew: true, isDelivered: false }
     ];
 
     const sampleReviews = [
@@ -173,30 +210,121 @@
       openSideCart();
     }
 
-    function renderBooks(items, targetContainer = booksContainer) {
-      targetContainer.innerHTML = items.map(item => {
-        const title = item.description || item.title || 'Untitled book';
-        const author = item.author || item.subtitle || 'Unknown author';
-        const priceValue = item.sell_price ? Number(item.sell_price) : item.price ? Number(item.price) : 0;
-        const price = priceValue ? `₱${priceValue.toFixed(2)}` : 'Free';
-        const image = item.img_path || item.image || 'https://images.unsplash.com/photo-1512820790803-83ca734da794?auto=format&fit=crop&w=800&q=80';
-        const pages = item.pages || item.Stock?.quantity || 'N/A';
-        const sale = item.sale ? `<span class="book-card-badge">${item.sale}% OFF</span>` : '';
-        const itemData = encodeURIComponent(JSON.stringify(item));
-        return `
-          <article class="book-card">
+    function renderBookCard(item) {
+      const title = item.description || item.title || 'Untitled book';
+      const author = item.author || item.subtitle || 'Unknown author';
+      const description = item.description_text || 'No description available yet.';
+      const snippet = description.length > 95 ? description.slice(0, 95) + '...' : description;
+      const priceValue = item.sell_price ? Number(item.sell_price) : item.price ? Number(item.price) : 0;
+      const price = priceValue ? `₱${priceValue.toFixed(2)}` : 'Free';
+      const image = item.img_path || item.image || 'https://images.unsplash.com/photo-1512820790803-83ca734da794?auto=format&fit=crop&w=800&q=80';
+      const pages = item.pages || item.Stock?.quantity || 'N/A';
+      const sale = item.sale ? `<span class="book-card-badge">${item.sale}% OFF</span>` : '';
+      const genreLabel = item.genre ? `<div class="book-card-genre">${item.genre}</div>` : '';
+      const itemData = encodeURIComponent(JSON.stringify(item));
+      return `
+          <article class="book-card" onclick="showBookPreview(JSON.parse(decodeURIComponent('${itemData}')))">
             <img src="${image}" alt="${title}" />
             <div class="book-card-body">
               ${sale}
               <h3 class="book-card-title">${title}</h3>
               <p class="book-card-author">${author}</p>
+              ${genreLabel}
+              <p class="book-card-description">${snippet}</p>
               <div class="book-card-meta"><span>${pages} pages</span><span>⭐ 4.5</span></div>
-              <div class="book-card-price">${price}</div>
-              <button class="button button-primary" style="margin-top: 20px;" onclick="addToCart(JSON.parse(decodeURIComponent('${itemData}')))">Add to cart</button>
+              <div class="book-preview-buttons" style="margin-top: 16px; display:flex; gap:10px; flex-wrap:wrap;">
+                <button class="button button-primary" type="button" onclick="event.stopPropagation(); addToCart(JSON.parse(decodeURIComponent('${itemData}')))">Add to cart</button>
+              </div>
             </div>
           </article>
         `;
-      }).join('');
+    }
+
+    function renderBooks(items, targetContainer = booksContainer) {
+      targetContainer.innerHTML = items.map(renderBookCard).join('');
+    }
+
+    function showBookPreview(item) {
+      const title = item.description || item.title || 'Untitled book';
+      const image = item.img_path || item.image || 'https://images.unsplash.com/photo-1512820790803-83ca734da794?auto=format&fit=crop&w=800&q=80';
+      const author = item.author || item.subtitle || 'Unknown author';
+      const genre = item.genre || 'General';
+      const priceValue = item.sell_price ? Number(item.sell_price) : item.price ? Number(item.price) : 0;
+      const price = priceValue ? `₱${priceValue.toFixed(2)}` : 'Free';
+      const description = item.description_text || 'No description available yet.';
+
+      document.getElementById('previewImage').src = image;
+      document.getElementById('previewImage').alt = title;
+      document.getElementById('previewTitle').textContent = title;
+      document.getElementById('previewGenre').textContent = genre;
+      document.getElementById('previewAuthor').textContent = `By ${author}`;
+      const stockLimit = item.Stock?.quantity != null ? Number(item.Stock.quantity) : null;
+      document.getElementById('previewPrice').textContent = price;
+      document.getElementById('previewDescription').textContent = description;
+      document.getElementById('previewStockInfo').textContent = stockLimit != null ? `Available: ${stockLimit}` : 'Available: 1+';
+      const quantityInput = document.getElementById('previewQuantity');
+      const quantityError = document.getElementById('previewQuantityError');
+      quantityInput.value = 1;
+      quantityInput.max = stockLimit || 20;
+      quantityError.style.display = 'none';
+
+      quantityInput.addEventListener('input', () => {
+        let value = Math.max(1, Number(quantityInput.value) || 1);
+        if (stockLimit != null && value > stockLimit) {
+          value = stockLimit;
+          quantityError.textContent = `Only ${stockLimit} available for this item.`;
+          quantityError.style.display = 'block';
+        } else {
+          quantityError.style.display = 'none';
+        }
+        quantityInput.value = value;
+      });
+
+      document.getElementById('previewAddBtn').onclick = () => {
+        const qty = Math.max(1, Number(quantityInput.value) || 1);
+        if (stockLimit != null && qty > stockLimit) {
+          quantityError.textContent = `Only ${stockLimit} available for this item.`;
+          quantityError.style.display = 'block';
+          return;
+        }
+        addToCart({ ...item, quantity: qty, stock_quantity: stockLimit });
+        closeBookPreview();
+      };
+      const modal = document.getElementById('bookPreviewModal');
+      modal.classList.add('open');
+      modal.setAttribute('aria-hidden', 'false');
+    }
+
+    function closeBookPreview() {
+      const modal = document.getElementById('bookPreviewModal');
+      modal.classList.remove('open');
+      modal.setAttribute('aria-hidden', 'true');
+    }
+
+    document.addEventListener('keydown', event => {
+      if (event.key === 'Escape') {
+        closeBookPreview();
+      }
+    });
+
+    function renderGenreCollections(items) {
+      const groups = items.reduce((acc, item) => {
+        const genre = (item.genre || 'General').trim() || 'General';
+        if (!acc[genre]) acc[genre] = [];
+        acc[genre].push(item);
+        return acc;
+      }, {});
+
+      const sections = Object.keys(groups).sort().map(genre => `
+        <div class="genre-group">
+          <h3 class="genre-group-title">${genre}</h3>
+          <div class="book-grid">
+            ${groups[genre].map(renderBookCard).join('')}
+          </div>
+        </div>
+      `).join('');
+
+      booksContainer.innerHTML = sections || '<p class="section-description">No books available yet.</p>';
     }
 
     async function loadBooks() {
@@ -206,14 +334,14 @@
         const rows = Array.isArray(data) ? data : data.rows || data.items || data.data || [];
         const items = rows.length ? rows : sampleBooks;
         loadedItems = items;
-        renderBooks(items);
+        renderGenreCollections(items);
         renderBestSellers(items);
         renderNewArrivals(items);
         renderSaleBooks(items);
         initReviewForm(items);
       } catch (error) {
         loadedItems = sampleBooks;
-        renderBooks(sampleBooks);
+        renderGenreCollections(sampleBooks);
         renderBestSellers(sampleBooks);
         renderNewArrivals(sampleBooks);
         renderSaleBooks(sampleBooks);
@@ -243,7 +371,7 @@
     function performSearch() {
       const q = (searchInput && searchInput.value || '').trim().toLowerCase();
       if (!q) {
-        renderBooks(loadedItems.length ? loadedItems : sampleBooks);
+        renderGenreCollections(loadedItems.length ? loadedItems : sampleBooks);
         renderBestSellers(loadedItems.length ? loadedItems : sampleBooks);
         renderNewArrivals(loadedItems.length ? loadedItems : sampleBooks);
         renderSaleBooks(loadedItems.length ? loadedItems : sampleBooks);
@@ -252,9 +380,10 @@
       const filtered = (loadedItems.length ? loadedItems : sampleBooks).filter(item => {
         const title = (item.description || item.title || '').toString().toLowerCase();
         const author = (item.author || item.subtitle || '').toString().toLowerCase();
-        return title.includes(q) || author.includes(q);
+        const genre = (item.genre || '').toString().toLowerCase();
+        return title.includes(q) || author.includes(q) || genre.includes(q);
       });
-      renderBooks(filtered);
+      renderGenreCollections(filtered);
       renderBestSellers(filtered);
       renderNewArrivals(filtered);
       renderSaleBooks(filtered);
@@ -393,7 +522,7 @@
       const cart = getCart();
       if (!cart || cart.length === 0) {
         sideCartItems.innerHTML = '<div class="cart-empty">Your cart is empty.</div>';
-        document.getElementById('sideCartTotal').textContent = '$0.00';
+        document.getElementById('sideCartTotal').textContent = '₱0.00';
         return;
       }
       const rows = cart.map(it => {

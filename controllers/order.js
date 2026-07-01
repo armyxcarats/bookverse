@@ -35,39 +35,38 @@ exports.createOrder = (req, res, next) => {
             return res.status(400).json({ error: 'Cart is empty' });
         }
 
-        const shippingValue = typeof shipping_cost !== 'undefined' ? parseFloat(shipping_cost) : 100;
-        const shippingAmount = Number(isNaN(shippingValue) ? 100 : shippingValue).toFixed(2);
+        const shippingValue = typeof shipping_cost !== 'undefined' ? parseFloat(shipping_cost) : 0;
+        const shippingAmount = Number(isNaN(shippingValue) ? 0 : shippingValue).toFixed(2);
 
-        const itemIds = Array.from(new Set((cart || []).map(i => parseInt(i.item_id, 10)).filter(Boolean)));
-        if (!itemIds.length) return res.status(400).json({ error: 'Cart is empty' });
-
-        // fetch current prices
-        const placeholders = itemIds.map(() => '?').join(',');
-        const priceSql = `SELECT item_id, sell_price FROM item WHERE item_id IN (${placeholders})`;
-        connection.execute(priceSql, itemIds, (err, priceRows) => {
-            if (err) return res.status(500).json({ error: 'Unable to verify item prices', details: err });
-
-            const priceMap = {};
-            priceRows.forEach(r => { priceMap[r.item_id] = Number(r.sell_price || 0); });
-
-            let computedTotal = 0;
-            for (const it of cart) {
-                const id = parseInt(it.item_id, 10);
-                const qty = Number(it.quantity || 1);
-                const p = priceMap[id];
-                if (typeof p === 'undefined') {
-                    return res.status(400).json({ error: `Item not found: ${id}` });
-                }
-                computedTotal += p * qty;
+        let computedTotal = 0;
+        for (const it of cart) {
+            const qty = Number(it.quantity || 1);
+            const price = Number(it.sell_price || it.price || 0);
+            if (qty <= 0 || isNaN(qty)) {
+                return res.status(400).json({ error: `Invalid quantity for item_id: ${it.item_id}` });
             }
-            computedTotal = Number(computedTotal) + Number(shippingAmount);
+            if (price <= 0 || isNaN(price)) {
+                return res.status(400).json({ error: `Invalid price for item_id: ${it.item_id}` });
+            }
+            computedTotal += price * qty;
+        }
+        computedTotal = Number(computedTotal.toFixed(2)) + Number(shippingAmount);
 
             const payVal = typeof payment_amount !== 'undefined' ? Number(payment_amount) : null;
             if (payVal === null || isNaN(payVal)) {
                 return res.status(400).json({ error: 'payment_amount is required and must be numeric' });
             }
-            if (Number(payVal) < Number(computedTotal)) {
-                return res.status(400).json({ error: 'Insufficient payment amount' });
+            const paymentCents = Math.round(payVal * 100);
+            const totalCents = Math.round(computedTotal * 100);
+            if (paymentCents < totalCents) {
+                console.log('PAYMENT DEBUG:', {
+                    payment_amount: payVal,
+                    computedTotal,
+                    paymentCents,
+                    totalCents,
+                    cart
+                });
+                return res.status(400).json({ error: 'Insufficient payment amount', payment_amount: payVal, computedTotal, paymentCents, totalCents });
             }
 
             // continue to create order transaction
@@ -133,6 +132,8 @@ exports.createOrder = (req, res, next) => {
                                     console.log('Email error:', emailErr);
                                 }
 
+                                const total_due = Number(computedTotal).toFixed(2);
+                                const change_due = Number(payVal - computedTotal).toFixed(2);
                                 return res.status(201).json({
                                     success: true,
                                     order_id,
@@ -140,6 +141,9 @@ exports.createOrder = (req, res, next) => {
                                     dateShipped,
                                     shipping: shippingAmount,
                                     status: 'pending',
+                                    total_due,
+                                    payment_amount: Number(payVal).toFixed(2),
+                                    change_due,
                                     cart
                                 });
                             });
@@ -147,7 +151,6 @@ exports.createOrder = (req, res, next) => {
                     });
                 });
             });
-        });
     } catch (error) {
         console.log(error);
         return res.status(500).json({ error: 'Error creating order', details: error.message });
@@ -203,7 +206,7 @@ exports.updateShippingDetails = async (req, res) => {
     try {
         const userId = req.body.user?.id;
         const orderId = parseInt(req.params.orderId, 10);
-        const { shipping_address, shipping_zipcode } = req.body;
+        const { shipping_address, shipping_zipcode, shipping_phone } = req.body;
 
         if (!userId) {
             return res.status(401).json({ error: 'User authentication missing' });
@@ -211,8 +214,8 @@ exports.updateShippingDetails = async (req, res) => {
         if (!orderId) {
             return res.status(400).json({ error: 'Order ID is required' });
         }
-        if (!shipping_address || !shipping_zipcode) {
-            return res.status(400).json({ error: 'Shipping address and zip code are required' });
+        if (!shipping_address || !shipping_zipcode || !shipping_phone) {
+            return res.status(400).json({ error: 'Shipping address, zip code, and phone number are required' });
         }
 
         const ownershipSql = `
@@ -237,15 +240,15 @@ exports.updateShippingDetails = async (req, res) => {
                 return res.status(403).json({ error: 'Not allowed to update shipping details for this order' });
             }
 
-            const updateSql = 'UPDATE orderinfo SET shipping_address = ?, shipping_zipcode = ? WHERE orderinfo_id = ?';
-            connection.execute(updateSql, [shipping_address, shipping_zipcode, orderId], (err, result) => {
+            const updateSql = 'UPDATE orderinfo SET shipping_address = ?, shipping_zipcode = ?, shipping_phone = ? WHERE orderinfo_id = ?';
+            connection.execute(updateSql, [shipping_address, shipping_zipcode, shipping_phone, orderId], (err, result) => {
                 if (err) {
                     return res.status(500).json({ error: 'Unable to update shipping details', details: err });
                 }
                 if (!result || result.affectedRows === 0) {
                     return res.status(404).json({ error: 'Order not found' });
                 }
-                return res.status(200).json({ success: true, order_id: orderId, shipping_address, shipping_zipcode });
+                return res.status(200).json({ success: true, order_id: orderId, shipping_address, shipping_zipcode, shipping_phone });
             });
         });
     } catch (error) {
@@ -374,5 +377,60 @@ exports.deleteOrder = async (req, res) => {
         });
     } catch (error) {
         return res.status(500).json({ error: 'Error deleting order', details: error.message });
+    }
+};
+
+exports.getOrderItems = async (req, res) => {
+    try {
+        const userId = req.body.user?.id;
+        const orderId = parseInt(req.params.orderId, 10);
+
+        if (!userId) {
+            return res.status(401).json({ error: 'User authentication missing' });
+        }
+        if (!orderId) {
+            return res.status(400).json({ error: 'Order ID is required' });
+        }
+
+        // Verify user owns this order
+        const ownershipSql = `
+            SELECT u.id AS user_id
+            FROM orderinfo oi
+            INNER JOIN customer c ON oi.customer_id = c.customer_id
+            INNER JOIN users u ON u.id = c.user_id
+            WHERE oi.orderinfo_id = ?
+            LIMIT 1
+        `;
+
+        connection.execute(ownershipSql, [orderId], (err, results) => {
+            if (err) {
+                return res.status(500).json({ error: 'Unable to verify order', details: err });
+            }
+            if (!results || !results.length) {
+                return res.status(404).json({ error: 'Order not found' });
+            }
+
+            const ownerId = results[0].user_id;
+            if (ownerId !== userId) {
+                return res.status(403).json({ error: 'Not authorized to view this order' });
+            }
+
+            // Fetch order items with details
+            const itemsSql = `
+                SELECT ol.quantity, i.item_id, i.description, i.sell_price, i.img_path
+                FROM orderline ol
+                INNER JOIN item i ON ol.item_id = i.item_id
+                WHERE ol.orderinfo_id = ?
+            `;
+
+            connection.execute(itemsSql, [orderId], (err, items) => {
+                if (err) {
+                    return res.status(500).json({ error: 'Unable to fetch items', details: err });
+                }
+                return res.status(200).json(items);
+            });
+        });
+    } catch (error) {
+        return res.status(500).json({ error: 'Error fetching order items', details: error.message });
     }
 };

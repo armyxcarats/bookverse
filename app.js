@@ -52,4 +52,8 @@ app.get('/cart', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'cart.html'))
 })
 
+app.get('/my-orders', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'my-orders.html'))
+})
+
 module.exports = app
