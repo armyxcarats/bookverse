@@ -172,13 +172,18 @@
       return raw ? JSON.parse(raw) : null;
     }
 
+    function getCartKey() {
+      const user = getStoredUser();
+      return user && user.id ? `bookverseCart_user_${user.id}` : 'bookverseCart_guest';
+    }
+
     function getCart() {
-      const raw = localStorage.getItem('bookverseCart');
+      const raw = localStorage.getItem(getCartKey());
       return raw ? JSON.parse(raw) : [];
     }
 
     function saveCart(cart) {
-      localStorage.setItem('bookverseCart', JSON.stringify(cart));
+      localStorage.setItem(getCartKey(), JSON.stringify(cart));
       updateCartCount();
     }
 

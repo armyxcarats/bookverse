@@ -144,6 +144,7 @@
     </div>
   </div>
 
+  <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
   <script>
     const emailInput = document.getElementById('email');
     const passwordInput = document.getElementById('password');
@@ -156,7 +157,7 @@
       messageBox.style.display = 'block';
     }
 
-    submitButton.addEventListener('click', async () => {
+    submitButton.addEventListener('click', () => {
       messageBox.style.display = 'none';
       const email = emailInput.value.trim();
       const password = passwordInput.value;
@@ -166,25 +167,21 @@
         return;
       }
 
-      try {
-        const response = await fetch('/api/v1/login', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email, password })
-        });
-
-        const data = await response.json();
-        if (!response.ok) {
+      $.ajax({
+        url: '/api/v1/login',
+        method: 'POST',
+        contentType: 'application/json',
+        data: JSON.stringify({ email, password }),
+        success(data) {
+          localStorage.setItem('bookverseToken', data.token);
+          localStorage.setItem('bookverseUser', JSON.stringify(data.user));
+          window.location.href = '/profile';
+        },
+        error(xhr) {
+          const data = xhr.responseJSON || {};
           showMessage(data.message || data.error || 'Login failed', 'error');
-          return;
         }
-
-        localStorage.setItem('bookverseToken', data.token);
-        localStorage.setItem('bookverseUser', JSON.stringify(data.user));
-        window.location.href = '/profile';
-      } catch (error) {
-        showMessage('Unable to connect to the server. Try again later.', 'error');
-      }
+      });
     });
   </script>
 </body>

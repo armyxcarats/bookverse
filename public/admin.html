@@ -22,6 +22,7 @@
     <div style="margin-bottom:12px; display:flex; gap:10px; align-items:center; position: relative;">
       <button id="itemsBtn" class="button button-secondary">Manage Books</button>
       <button id="ordersBtn" class="button button-secondary">View Orders</button>
+      <button id="usersBtn" class="button button-secondary">Manage Users</button>
       <button id="addBtn" class="button button-primary">Add book</button>
       <button id="refreshBtn" class="button button-secondary">Refresh</button>
       <div style="margin-left:auto; display:flex; gap:10px; align-items:center;">
@@ -34,6 +35,11 @@
       <h3>Order Transactions</h3>
       <table id="ordersTable" class="display" style="width:100%"></table>
       <div id="ordersMessage" class="message" style="display:none; margin-top:12px;"></div>
+    </div>
+    <div id="usersSection" style="display:none; margin-top: 24px;">
+      <h3>User Management</h3>
+      <table id="usersTable" class="display" style="width:100%"></table>
+      <div id="usersMessage" class="message" style="display:none; margin-top:12px;"></div>
     </div>
   </main>
 
@@ -112,8 +118,11 @@
     function hideModal(){ $('#editModal').hide(); }
 
     async function loadItems(){
-      const res = await fetch('/api/v1/items');
-      const data = await res.json();
+      const data = await $.ajax({
+        url: '/api/v1/items',
+        method: 'GET',
+        dataType: 'json'
+      });
       const rows = Array.isArray(data) ? data : data.rows || data.items || data.data || [];
       const items = rows;
       if (!table){
@@ -141,8 +150,11 @@
           if (!confirm('Delete '+(row.description||row.title))) return;
           try{
             const token = getToken();
-            const res = await fetch(`/api/v1/items/${row.item_id}`, { method: 'DELETE', headers: { 'Authorization': `Bearer ${token}` } });
-            if (!res.ok) throw new Error('delete failed');
+            await $.ajax({
+              url: `/api/v1/items/${row.item_id}`,
+              method: 'DELETE',
+              headers: { 'Authorization': `Bearer ${token}` }
+            });
             table.row($(this).parents('tr')).remove().draw();
           }catch(e){ alert('Delete failed. Make sure you are logged in.'); }
         });
@@ -153,6 +165,7 @@
 
     $('#addBtn').on('click', ()=> showModal(false,{}));
     $('#refreshBtn').on('click', loadItems);
+    $('#usersBtn').on('click', showUsersSection);
     $('#cancelBtn').on('click', hideModal);
 
     $('#saveBtn').on('click', async ()=>{
@@ -177,27 +190,28 @@
 
       try{
         const token = getToken();
-        const headers = new Headers();
-        if (token) headers.append('Authorization', `Bearer ${token}`);
-        const opts = { method: editingId ? 'PUT' : 'POST', headers, body: form };
         const url = editingId ? `/api/v1/items/${editingId}` : '/api/v1/items';
-        const res = await fetch(url, opts);
-        if (!res.ok) {
-          const text = await res.text();
-          $('#modalMsg').text(text || 'Save failed. Ensure you are logged in and have permission.').show();
-          return;
-        }
+        await $.ajax({
+          url,
+          method: editingId ? 'PUT' : 'POST',
+          headers: token ? { 'Authorization': `Bearer ${token}` } : {},
+          data: form,
+          processData: false,
+          contentType: false,
+          dataType: 'json'
+        });
         hideModal();
         await loadItems();
       }catch(e){
-        $('#modalMsg').text(e && e.message ? e.message : 'Save failed. Ensure you are logged in and have permission.').show();
+        $('#modalMsg').text('Save failed. Ensure you are logged in and have permission.').show();
       }
     });
 
     function showAdminUI(){
       $('#itemsTable').show();
       $('#ordersSection').hide();
-      $('#itemsBtn, #ordersBtn, #addBtn, #refreshBtn').show();
+      $('#usersSection').hide();
+      $('#itemsBtn, #ordersBtn, #usersBtn, #addBtn, #refreshBtn').show();
       setAuthUI();
       loadItems();
     }
@@ -205,20 +219,31 @@
     function hideAdminUI(){
       $('#itemsTable').hide();
       $('#ordersSection').hide();
-      $('#itemsBtn, #ordersBtn, #addBtn, #refreshBtn').hide();
+      $('#usersSection').hide();
+      $('#itemsBtn, #ordersBtn, #usersBtn, #addBtn, #refreshBtn').hide();
     }
 
     function showItemsSection(){
       $('#ordersSection').hide();
+      $('#usersSection').hide();
       $('#itemsTable').show();
       $('#addBtn, #refreshBtn').show();
     }
 
     function showOrdersSection(){
       $('#itemsTable').hide();
+      $('#usersSection').hide();
       $('#ordersSection').show();
       $('#addBtn, #refreshBtn').hide();
       loadOrders();
+    }
+
+    function showUsersSection(){
+      $('#itemsTable').hide();
+      $('#ordersSection').hide();
+      $('#usersSection').show();
+      $('#addBtn, #refreshBtn').hide();
+      loadUsers();
     }
 
     $(document).ready(()=>{
@@ -258,17 +283,20 @@
         return;
       }
 
-      const response = await fetch('/api/v1/orders', {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-
-      if (!response.ok) {
-        const body = await response.json();
+      let orders;
+      try {
+        orders = await $.ajax({
+          url: '/api/v1/orders',
+          method: 'GET',
+          headers: { 'Authorization': `Bearer ${token}` },
+          dataType: 'json'
+        });
+      } catch (xhr) {
+        const body = xhr.responseJSON || {};
         message.text(body.error || 'Unable to load orders.').show();
         return;
       }
 
-      const orders = await response.json();
       message.hide();
       if (!window.orderTable) {
         window.orderTable = $('#ordersTable').DataTable({
@@ -295,40 +323,179 @@
         $('#ordersTable tbody').on('change', 'select.status-select', async function() {
           const orderId = $(this).data('order-id');
           const status = $(this).val();
-          const res = await fetch(`/api/v1/orders/${orderId}/status`, {
-            method: 'PUT',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${token}`
-            },
-            body: JSON.stringify({ status })
-          });
-          const data = await res.json();
-          if (!res.ok) {
-            message.text(data.error || 'Unable to update status').show();
-            return;
+          try {
+            const data = await $.ajax({
+              url: `/api/v1/orders/${orderId}/status`,
+              method: 'PUT',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+              },
+              data: JSON.stringify({ status }),
+              dataType: 'json'
+            });
+            message.text(`Order #${orderId} status updated to ${data.status}`).show();
+            loadOrders();
+          } catch (xhr) {
+            const body = xhr.responseJSON || {};
+            message.text(body.error || 'Unable to update status').show();
           }
-          message.text(`Order #${orderId} status updated to ${data.status}`).show();
-          loadOrders();
         });
 
         $('#ordersTable tbody').on('click', 'button.delete-order', async function() {
           const row = window.orderTable.row($(this).parents('tr')).data();
           if (!confirm('Delete order #' + row.order_id + '?')) return;
-          const res = await fetch('/api/v1/orders/' + row.order_id, {
-            method: 'DELETE',
-            headers: { 'Authorization': `Bearer ${token}` }
-          });
-          const body = await res.json();
-          if (!res.ok) {
+          try {
+            await $.ajax({
+              url: '/api/v1/orders/' + row.order_id,
+              method: 'DELETE',
+              headers: { 'Authorization': `Bearer ${token}` }
+            });
+            message.text('Order deleted').show();
+            loadOrders();
+          } catch (xhr) {
+            const body = xhr.responseJSON || {};
             message.text(body.error || 'Delete failed').show();
-            return;
           }
-          message.text(body.message || 'Order deleted').show();
-          loadOrders();
         });
       } else {
         window.orderTable.clear().rows.add(orders).draw();
+      }
+    }
+
+    async function loadUsers() {
+      const token = getToken();
+      const message = $('#usersMessage');
+      if (!token) {
+        message.text('Please login first.').show();
+        return;
+      }
+
+      let data;
+      try {
+        data = await $.ajax({
+          url: '/api/v1/users',
+          method: 'GET',
+          headers: { 'Authorization': `Bearer ${token}` },
+          dataType: 'json'
+        });
+      } catch (xhr) {
+        const body = xhr.responseJSON || {};
+        message.text(body.error || 'Unable to load users.').show();
+        return;
+      }
+
+      const users = Array.isArray(data) ? data : data.users || [];
+      message.hide();
+
+      if (!window.userTable) {
+        window.userTable = $('#usersTable').DataTable({
+          data: users,
+          columns: [
+            { title: 'ID', data: 'id' },
+            { title: 'Name', data: 'name' },
+            { title: 'Email', data: 'email' },
+            { title: 'Role', data: 'role', render: (v, t, row) => {
+                return `<select class="role-select" data-user-id="${row.id}"><option value="user" ${row.role === 'user' ? 'selected' : ''}>user</option><option value="admin" ${row.role === 'admin' ? 'selected' : ''}>admin</option></select>`;
+              }
+            },
+            { title: 'Status', data: 'deleted_at', render: v => v ? 'Deactivated' : 'Active' },
+            { title: 'Created', data: 'created_at' },
+            { title: 'Updated', data: 'updated_at' },
+            { title: 'Actions', data: null, orderable: false, render: (data, type, row) => {
+                if (row.deleted_at) {
+                  return `<button class="reactivate-user" data-user-id="${row.id}">Reactivate</button> <button class="setpass-user" data-user-id="${row.id}">Set password</button>`;
+                }
+                return `<button class="deactivate-user" data-user-id="${row.id}">Deactivate</button> <button class="setpass-user" data-user-id="${row.id}">Set password</button>`;
+              }
+            }
+          ]
+        });
+
+        $('#usersTable tbody').on('change', 'select.role-select', async function() {
+          const userId = $(this).data('user-id');
+          const role = $(this).val();
+          try {
+            const body = await $.ajax({
+              url: `/api/v1/users/${userId}/role`,
+              method: 'PUT',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+              },
+              data: JSON.stringify({ role }),
+              dataType: 'json'
+            });
+            message.text(`User role updated: ${body.user.email} -> ${body.user.role}`).show();
+            loadUsers();
+          } catch (xhr) {
+            const body = xhr.responseJSON || {};
+            message.text(body.error || 'Unable to update role').show();
+          }
+        });
+
+        $('#usersTable tbody').on('click', 'button.deactivate-user', async function() {
+          const userId = $(this).data('user-id');
+          if (!confirm('Deactivate this user?')) return;
+          try {
+            const body = await $.ajax({
+              url: `/api/v1/users/${userId}/deactivate`,
+              method: 'PUT',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+              },
+              dataType: 'json'
+            });
+            message.text(body.message || 'User deactivated').show();
+            loadUsers();
+          } catch (xhr) {
+            const body = xhr.responseJSON || {};
+            message.text(body.error || 'Unable to deactivate user').show();
+          }
+        });
+        $('#usersTable tbody').on('click', 'button.reactivate-user', async function() {
+          const userId = $(this).data('user-id');
+          if (!confirm('Reactivate this user?')) return;
+          try {
+            const body = await $.ajax({
+              url: `/api/v1/users/${userId}/reactivate`,
+              method: 'PUT',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+              },
+              dataType: 'json'
+            });
+            message.text(body.message || 'User reactivated').show();
+            loadUsers();
+          } catch (xhr) {
+            const body = xhr.responseJSON || {};
+            message.text(body.error || 'Unable to reactivate user').show();
+          }
+        });
+        $('#usersTable tbody').on('click', 'button.setpass-user', async function() {
+          const userId = $(this).data('user-id');
+          const newPass = prompt('Enter new password for user (min 6 chars, include a number):');
+          if (!newPass) return;
+          if (newPass.length < 6 || !/\d/.test(newPass)) { alert('Password must be at least 6 characters and include a number'); return; }
+          try {
+            const body = await $.ajax({
+              url: `/api/v1/users/${userId}/password`,
+              method: 'PUT',
+              headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+              data: JSON.stringify({ newPassword: newPass }),
+              dataType: 'json'
+            });
+            message.text(body.message || 'Password updated').show();
+            loadUsers();
+          } catch (xhr) {
+            const body = xhr.responseJSON || {};
+            message.text(body.error || 'Unable to set password').show();
+          }
+        });
+      } else {
+        window.userTable.clear().rows.add(users).draw();
       }
     }
 
@@ -353,22 +520,20 @@
         return;
       }
       try {
-        const res = await fetch('/api/v1/login', {
+        const data = await $.ajax({
+          url: '/api/v1/login',
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email, password })
+          contentType: 'application/json',
+          data: JSON.stringify({ email, password }),
+          dataType: 'json'
         });
-        const data = await res.json();
-        if (!res.ok) {
-          $('#loginMsg').text(data.message || data.error || 'Login failed').show();
-          return;
-        }
         localStorage.setItem('bookverseToken', data.token);
         localStorage.setItem('bookverseUser', JSON.stringify(data.user));
         hideLoginModal();
         showAdminUI();
-      } catch (error) {
-        $('#loginMsg').text('Unable to contact server').show();
+      } catch (xhr) {
+        const data = xhr.responseJSON || {};
+        $('#loginMsg').text(data.message || data.error || 'Login failed').show();
       }
     });
   </script>

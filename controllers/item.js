@@ -1,7 +1,9 @@
 const db = require('../models');
+const { Op } = require('sequelize');
 const Item = db.Item;
 const Stock = db.Stock;
 const ItemImage = db.ItemImage;
+const Sequelize = db.Sequelize;
 
 function normalizePath(value) {
     return value?.replace(/\\/g, '/') || value;
@@ -10,13 +12,42 @@ function normalizePath(value) {
 // Get all items with stock and images
 exports.getAllItems = async (req, res) => {
     try {
+        const { search, category } = req.query;
+        const where = {};
+
+        if (search) {
+            where[Op.or] = [
+                { description: { [Op.like]: `%${search}%` } },
+                { description_text: { [Op.like]: `%${search}%` } },
+                { genre: { [Op.like]: `%${search}%` } }
+            ];
+        }
+        if (category) {
+            where.genre = category;
+        }
+
         const items = await Item.findAll({
+            where,
             include: [{ model: Stock }, { model: ItemImage }]
         });
         return res.status(200).json({ rows: items });
     } catch (error) {
         console.error({ message: error && error.message, original: error && error.original, parent: error && error.parent, stack: error && error.stack });
         return res.status(500).json({ error: 'Error fetching items' });
+    }
+};
+
+exports.getItemCategories = async (req, res) => {
+    try {
+        const categories = await Item.findAll({
+            attributes: [[Sequelize.fn('DISTINCT', Sequelize.col('genre')), 'genre']],
+            raw: true
+        });
+        const result = categories.map(r => r.genre).filter(Boolean);
+        return res.status(200).json({ categories: result });
+    } catch (error) {
+        console.error(error);
+        return res.status(500).json({ error: 'Error fetching categories' });
     }
 };
 

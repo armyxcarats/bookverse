@@ -317,8 +317,18 @@
 
 <script>
   // ------- Helpers ----------
+  function getStoredUser() {
+    const raw = localStorage.getItem('bookverseUser');
+    return raw ? JSON.parse(raw) : null;
+  }
+
+  function getCartKey() {
+    const user = getStoredUser();
+    return user && user.id ? `bookverseCart_user_${user.id}` : 'bookverseCart_guest';
+  }
+
   function getCart() {
-    const raw = localStorage.getItem('bookverseCart');
+    const raw = localStorage.getItem(getCartKey());
     const cart = raw ? JSON.parse(raw) : [];
     return cart.map(item => ({
       selected: typeof item.selected === 'boolean' ? item.selected : true,
@@ -327,7 +337,7 @@
   }
 
   function saveCart(cart) {
-    localStorage.setItem('bookverseCart', JSON.stringify(cart));
+    localStorage.setItem(getCartKey(), JSON.stringify(cart));
   }
 
   function showMessage(text, type = 'success') {
@@ -572,6 +582,16 @@
       }
 
       if (!res.ok) {
+        // If token invalid/expired, clear stored credentials and redirect to login
+        const tokenErr = (data && typeof data.error === 'string' && data.error.toLowerCase().includes('token')) || res.status === 401;
+        if (tokenErr) {
+          localStorage.removeItem('bookverseToken');
+          localStorage.removeItem('bookverseUser');
+          showMessage('Invalid or expired token. Redirecting to login...', 'error');
+          setTimeout(() => window.location.href = '/login', 1200);
+          return;
+        }
+
         showMessage(data.error || `Checkout failed (${res.status})`, 'error');
         return;
       }

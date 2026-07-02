@@ -1,8 +1,82 @@
 const connection = require('../config/_database');
 const sendEmail = require('../utils/sendEmail');
-
-const ADMIN_EMAIL = 'admin@bookverse.local';
+const generateReceiptPdf = require('../utils/generateReceiptPdf');
 const VALID_ORDER_STATUSES = ['pending', 'shipping', 'on delivery', 'cancelled', 'delivered'];
+
+const fetchOrderDetails = (orderId) => {
+    return new Promise((resolve, reject) => {
+        const sql = `
+            SELECT oi.orderinfo_id AS order_id,
+                   oi.date_placed,
+                   oi.date_shipped,
+                   oi.shipping,
+                   oi.shipping_address,
+                   oi.shipping_zipcode,
+                   oi.shipping_phone,
+                   oi.status,
+                   c.customer_id,
+                   c.fname,
+                   c.lname,
+                   u.email AS customer_email
+            FROM orderinfo oi
+            INNER JOIN customer c ON oi.customer_id = c.customer_id
+            INNER JOIN users u ON u.id = c.user_id
+            WHERE oi.orderinfo_id = ?
+            LIMIT 1
+        `;
+        connection.execute(sql, [orderId], (err, results) => {
+            if (err) return reject(err);
+            if (!results || !results.length) return resolve(null);
+            resolve(results[0]);
+        });
+    });
+};
+
+const fetchOrderItems = (orderId) => {
+    return new Promise((resolve, reject) => {
+        const itemsSql = `
+            SELECT ol.quantity,
+                   i.item_id,
+                   i.description,
+                   i.sell_price,
+                   i.img_path
+            FROM orderline ol
+            INNER JOIN item i ON ol.item_id = i.item_id
+            WHERE ol.orderinfo_id = ?
+        `;
+        connection.execute(itemsSql, [orderId], (err, items) => {
+            if (err) return reject(err);
+            resolve(items || []);
+        });
+    });
+};
+
+const sendStatusUpdateReceipt = async (orderId, status) => {
+    const order = await fetchOrderDetails(orderId);
+    if (!order) {
+        throw new Error('Order not found');
+    }
+
+    const items = await fetchOrderItems(orderId);
+    const pdfBuffer = await generateReceiptPdf(order, items);
+
+    await sendEmail({
+        email: order.customer_email,
+        subject: `Bookverse Order #${orderId} status updated to ${status}`,
+        html: `
+            <p>Hello ${order.fname || ''} ${order.lname || ''},</p>
+            <p>Your order <strong>#${orderId}</strong> status has been updated to <strong>${status}</strong>.</p>
+            <p>Please find your receipt attached.</p>
+        `,
+        attachments: [
+            {
+                filename: `receipt_order_${orderId}.pdf`,
+                content: pdfBuffer,
+                contentType: 'application/pdf'
+            }
+        ]
+    });
+};
 
 const executeQuery = (sql, params = []) => {
     return new Promise((resolve, reject) => {
@@ -13,14 +87,14 @@ const executeQuery = (sql, params = []) => {
     });
 };
 
-const getUserEmail = async (userId) => {
-    const results = await executeQuery('SELECT email FROM users WHERE id = ? LIMIT 1', [parseInt(userId, 10)]);
-    return Array.isArray(results) && results.length > 0 ? results[0].email : null;
+const getUserRole = async (userId) => {
+    const results = await executeQuery('SELECT role FROM users WHERE id = ? LIMIT 1', [parseInt(userId, 10)]);
+    return Array.isArray(results) && results.length > 0 ? results[0].role : null;
 };
 
 const isAdminUser = async (userId) => {
-    const email = await getUserEmail(userId);
-    return typeof email === 'string' && email.toLowerCase() === ADMIN_EMAIL.toLowerCase();
+    const role = await getUserRole(userId);
+    return role === 'admin';
 };
 
 exports.createOrder = (req, res, next) => {
@@ -291,13 +365,20 @@ exports.updateOrderStatus = async (req, res) => {
         const updateSql = `UPDATE orderinfo SET ${updates.join(', ')} WHERE orderinfo_id = ?`;
         params.push(orderId);
 
-        connection.execute(updateSql, params, (err, result) => {
+        connection.execute(updateSql, params, async (err, result) => {
             if (err) {
                 return res.status(500).json({ error: 'Unable to update order status', details: err });
             }
             if (!result || result.affectedRows === 0) {
                 return res.status(404).json({ error: 'Order not found' });
             }
+
+            try {
+                await sendStatusUpdateReceipt(orderId, status);
+            } catch (emailErr) {
+                console.log('Receipt email error:', emailErr);
+            }
+
             return res.status(200).json({ success: true, order_id: orderId, status });
         });
     } catch (error) {
@@ -383,6 +464,64 @@ exports.deleteOrder = async (req, res) => {
         });
     } catch (error) {
         return res.status(500).json({ error: 'Error deleting order', details: error.message });
+    }
+};
+
+exports.cancelOrder = async (req, res) => {
+    try {
+        const userId = req.body.user?.id;
+        const orderId = parseInt(req.params.orderId, 10);
+
+        if (!userId) {
+            return res.status(401).json({ error: 'User authentication missing' });
+        }
+        if (!orderId) {
+            return res.status(400).json({ error: 'Order ID is required' });
+        }
+
+        const ownershipSql = `
+            SELECT u.id AS user_id
+            FROM orderinfo oi
+            INNER JOIN customer c ON oi.customer_id = c.customer_id
+            INNER JOIN users u ON u.id = c.user_id
+            WHERE oi.orderinfo_id = ?
+            LIMIT 1
+        `;
+
+        connection.execute(ownershipSql, [orderId], async (err, results) => {
+            if (err) {
+                return res.status(500).json({ error: 'Unable to verify order ownership', details: err });
+            }
+            if (!results || !results.length) {
+                return res.status(404).json({ error: 'Order not found' });
+            }
+
+            const ownerId = results[0].user_id;
+            const admin = await isAdminUser(userId);
+            if (!admin && ownerId !== userId) {
+                return res.status(403).json({ error: 'Not allowed to cancel this order' });
+            }
+
+            const updateSql = 'UPDATE orderinfo SET status = ? WHERE orderinfo_id = ?';
+            connection.execute(updateSql, ['cancelled', orderId], async (err, result) => {
+                if (err) {
+                    return res.status(500).json({ error: 'Unable to cancel order', details: err });
+                }
+                if (!result || result.affectedRows === 0) {
+                    return res.status(404).json({ error: 'Order not found' });
+                }
+
+                try {
+                    await sendStatusUpdateReceipt(orderId, 'cancelled');
+                } catch (emailErr) {
+                    console.log('Receipt email error:', emailErr);
+                }
+
+                return res.status(200).json({ success: true, order_id: orderId, status: 'cancelled' });
+            });
+        });
+    } catch (error) {
+        return res.status(500).json({ error: 'Error cancelling order', details: error.message });
     }
 };
 

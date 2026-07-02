@@ -216,6 +216,7 @@
     </div>
   </div>
 
+  <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
   <script>
     const firstNameInput = document.getElementById('firstName');
     const lastNameInput = document.getElementById('lastName');
@@ -235,7 +236,7 @@
       messageBox.style.display = 'block';
     }
 
-    submitButton.addEventListener('click', async () => {
+    submitButton.addEventListener('click', () => {
       messageBox.style.display = 'none';
       const firstName = firstNameInput.value.trim();
       const lastName = lastNameInput.value.trim();
@@ -251,8 +252,7 @@
         return;
       }
 
-      try {
-        const formData = new FormData();
+      const formData = new FormData();
       formData.append('firstName', firstName);
       formData.append('lastName', lastName);
       formData.append('title', title);
@@ -265,24 +265,23 @@
         formData.append('image', profilePhotoInput.files[0]);
       }
 
-      const response = await fetch('/api/v1/register', {
-          method: 'POST',
-          body: formData
-        });
-
-        const data = await response.json();
-        if (!response.ok) {
+      $.ajax({
+        url: '/api/v1/register',
+        method: 'POST',
+        data: formData,
+        processData: false,
+        contentType: false,
+        success(data) {
+          showMessage('Registration successful. Redirecting to login...');
+          setTimeout(() => {
+            window.location.href = '/login';
+          }, 1400);
+        },
+        error(xhr) {
+          const data = xhr.responseJSON || {};
           showMessage(data.message || data.error || 'Registration failed', 'error');
-          return;
         }
-
-        showMessage('Registration successful. Redirecting to login...');
-        setTimeout(() => {
-          window.location.href = '/login';
-        }, 1400);
-      } catch (error) {
-        showMessage('Unable to connect to the server. Try again later.', 'error');
-      }
+      });
     });
   </script>
 </body>
