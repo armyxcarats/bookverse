@@ -501,6 +501,7 @@
   async function checkout() {
     const userToken = localStorage.getItem('bookverseToken');
     const userRaw = localStorage.getItem('bookverseUser');
+    const payButton = document.getElementById('paySelectedBtn');
     
     // Get ALL items from cart
     const allCart = getCart();
@@ -520,33 +521,35 @@
 
     // Get payment amount from input and normalize it
     const paymentInput = document.getElementById('paymentAmount');
-    const rawValue = paymentInput.value.trim().replace(/[^0-9.]/g, '');
-    const paymentAmount = Number(rawValue);
+    const paymentAmount = Number.parseFloat(paymentInput.value);
 
     // Calculate total for selected items only
     const selectedTotal = selectedCart.reduce((sum, item) => {
-        const price = parseFloat(item.sell_price) || 0;
-        const qty = parseInt(item.quantity, 10) || 1;
+        const price = Number.parseFloat(item.sell_price) || 0;
+        const qty = Number.parseInt(item.quantity, 10) || 1;
         return sum + price * qty;
       }, 0);
 
-      const totalRounded = Number(selectedTotal.toFixed(2));
+    const totalRounded = Number(selectedTotal.toFixed(2));
 
-      // Validate payment amount
-      if (isNaN(paymentAmount) || paymentAmount <= 0) {
-        showMessage('Please enter a valid payment amount.', 'error');
-        return;
-      }
+    // Validate payment amount
+    if (!Number.isFinite(paymentAmount) || paymentAmount <= 0) {
+      showMessage('Please enter a valid payment amount.', 'error');
+      return;
+    }
 
-      const paymentRounded = Number(paymentAmount.toFixed(2));
-      const paymentCents = Math.round(paymentRounded * 100);
-      const totalCents = Math.round(totalRounded * 100);
-      if (paymentCents < totalCents) {
-        showMessage(`Insufficient payment. Selected items total: ₱${totalRounded.toFixed(2)}, you entered: ₱${paymentRounded.toFixed(2)}`, 'error');
-        return;
-      }
+    const paymentRounded = Number(paymentAmount.toFixed(2));
+    const paymentCents = Math.round(paymentRounded * 100);
+    const totalCents = Math.round(totalRounded * 100);
+    if (paymentCents < totalCents) {
+      showMessage(`Insufficient payment. Selected items total: ₱${totalRounded.toFixed(2)}, you entered: ₱${paymentRounded.toFixed(2)}`, 'error');
+      return;
+    }
 
     try {
+      payButton.disabled = true;
+      payButton.textContent = 'Processing...';
+
       const res = await fetch('/api/v1/create-order', {
         method: 'POST',
         headers: {
@@ -555,14 +558,21 @@
         },
         body: JSON.stringify({
           cart: selectedCart,
-          user: JSON.parse(userRaw),
           payment_amount: paymentRounded,
           shipping_cost: 0
         })
       });
-      const data = await res.json();
+
+      const responseText = await res.text();
+      let data = {};
+      try {
+        data = responseText ? JSON.parse(responseText) : {};
+      } catch (parseError) {
+        data.error = responseText || 'Unable to parse server response';
+      }
+
       if (!res.ok) {
-        showMessage(data.error || 'Checkout failed', 'error');
+        showMessage(data.error || `Checkout failed (${res.status})`, 'error');
         return;
       }
 
@@ -572,7 +582,10 @@
       const changeAmount = Number((paymentRounded - totalRounded).toFixed(2));
       showReceipt({ total: totalRounded, paid: paymentRounded, change: changeAmount });
     } catch (err) {
-      showMessage('Checkout failed. Please try again later.', 'error');
+      showMessage(err?.message || 'Checkout failed. Please try again later.', 'error');
+    } finally {
+      payButton.disabled = false;
+      payButton.textContent = 'Pay';
     }
   }
 

@@ -35,39 +35,45 @@ exports.createOrder = (req, res, next) => {
             return res.status(400).json({ error: 'Cart is empty' });
         }
 
-        const shippingValue = typeof shipping_cost !== 'undefined' ? parseFloat(shipping_cost) : 0;
-        const shippingAmount = Number(isNaN(shippingValue) ? 0 : shippingValue).toFixed(2);
+        const shippingValue = Number.parseFloat(shipping_cost);
+        const shippingAmount = Number.isFinite(shippingValue) ? Number(shippingValue.toFixed(2)) : 0;
 
         let computedTotal = 0;
         for (const it of cart) {
-            const qty = Number(it.quantity || 1);
-            const price = Number(it.sell_price || it.price || 0);
-            if (qty <= 0 || isNaN(qty)) {
-                return res.status(400).json({ error: `Invalid quantity for item_id: ${it.item_id}` });
+            const itemId = Number(it.item_id || it.id);
+            const qty = Number.parseInt(it.quantity, 10) || 1;
+            const price = Number.parseFloat(it.sell_price || it.price || 0);
+
+            if (!Number.isInteger(itemId) || itemId <= 0) {
+                return res.status(400).json({ error: `Invalid item_id for cart item`, item: it });
             }
-            if (price <= 0 || isNaN(price)) {
-                return res.status(400).json({ error: `Invalid price for item_id: ${it.item_id}` });
+            if (!Number.isInteger(qty) || qty <= 0) {
+                return res.status(400).json({ error: `Invalid quantity for item_id: ${itemId}` });
             }
+            if (!Number.isFinite(price) || price <= 0) {
+                return res.status(400).json({ error: `Invalid price for item_id: ${itemId}` });
+            }
+
             computedTotal += price * qty;
         }
-        computedTotal = Number(computedTotal.toFixed(2)) + Number(shippingAmount);
+        computedTotal = Number((computedTotal + shippingAmount).toFixed(2));
 
-            const payVal = typeof payment_amount !== 'undefined' ? Number(payment_amount) : null;
-            if (payVal === null || isNaN(payVal)) {
-                return res.status(400).json({ error: 'payment_amount is required and must be numeric' });
-            }
-            const paymentCents = Math.round(payVal * 100);
-            const totalCents = Math.round(computedTotal * 100);
-            if (paymentCents < totalCents) {
-                console.log('PAYMENT DEBUG:', {
-                    payment_amount: payVal,
-                    computedTotal,
-                    paymentCents,
-                    totalCents,
-                    cart
-                });
-                return res.status(400).json({ error: 'Insufficient payment amount', payment_amount: payVal, computedTotal, paymentCents, totalCents });
-            }
+        const payVal = Number.parseFloat(payment_amount);
+        if (!Number.isFinite(payVal)) {
+            return res.status(400).json({ error: 'payment_amount is required and must be numeric' });
+        }
+        const paymentCents = Math.round(payVal * 100);
+        const totalCents = Math.round(computedTotal * 100);
+        if (paymentCents < totalCents) {
+            console.log('PAYMENT DEBUG:', {
+                payment_amount: payVal,
+                computedTotal,
+                paymentCents,
+                totalCents,
+                cart
+            });
+            return res.status(400).json({ error: 'Insufficient payment amount', payment_amount: Number(payVal.toFixed(2)), computedTotal, paymentCents, totalCents });
+        }
 
             // continue to create order transaction
             const dateOrdered = new Date();
@@ -94,7 +100,7 @@ exports.createOrder = (req, res, next) => {
                         }
 
                         const order_id = result.insertId;
-                        const values = cart.map(item => [order_id, item.item_id, item.quantity || 1]);
+                        const values = cart.map(item => [order_id, Number(item.item_id || item.id), Number(item.quantity || 1)]);
                         if (values.length === 0) {
                             connection.commit(err => {
                                 if (err) return connection.rollback(() => res.status(500).json({ error: 'Commit error', details: err }));
