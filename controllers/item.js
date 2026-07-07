@@ -5,8 +5,89 @@ const Stock = db.Stock;
 const ItemImage = db.ItemImage;
 const Sequelize = db.Sequelize;
 
+const sampleItems = [
+    {
+        description: 'The Secret Chapter',
+        description_text: 'A mysterious novel about a hidden manuscript that changes the life of a young reader. It blends humor, suspense, and subtle lessons for anyone who enjoys thoughtful fiction.',
+        genre: 'Fiction',
+        cost_price: 160.00,
+        sell_price: 240.00,
+        img_path: 'https://images.unsplash.com/photo-1512820790803-83ca734da794?auto=format&fit=crop&w=800&q=80',
+        quantity: 18
+    },
+    {
+        description: 'Node.js in Action',
+        description_text: 'This hands-on guide walks you through building modern Node.js applications with real-world examples and best practices.',
+        genre: 'Technology',
+        cost_price: 190.00,
+        sell_price: 285.00,
+        img_path: 'https://images.unsplash.com/photo-1524995997946-a1c2e315a42f?auto=format&fit=crop&w=800&q=80',
+        quantity: 24
+    },
+    {
+        description: 'Design Patterns for Web Apps',
+        description_text: 'A practical introduction to design patterns that help you build scalable and maintainable web applications.',
+        genre: 'Technology',
+        cost_price: 140.00,
+        sell_price: 210.00,
+        img_path: 'https://images.unsplash.com/photo-1532012197267-da84d127e765?auto=format&fit=crop&w=800&q=80',
+        quantity: 20
+    },
+    {
+        description: 'MySQL & Sequelize Guide',
+        description_text: 'A complete walkthrough for building Node.js apps with MySQL using Sequelize ORM.',
+        genre: 'Technology',
+        cost_price: 180.00,
+        sell_price: 265.00,
+        img_path: 'https://images.unsplash.com/photo-1517430816045-df4b7de45f8f?auto=format&fit=crop&w=800&q=80',
+        quantity: 16
+    },
+    {
+        description: 'E-commerce UX Essentials',
+        description_text: 'A practical resource for designing great online shopping experiences with product pages and checkout flows.',
+        genre: 'Business',
+        cost_price: 130.00,
+        sell_price: 195.00,
+        img_path: 'https://images.unsplash.com/photo-1515378791036-0648a3ef77b2?auto=format&fit=crop&w=800&q=80',
+        quantity: 22
+    },
+    {
+        description: 'Practical API Design',
+        description_text: 'A thoughtful book on designing clean APIs for modern apps. It explains principles for reliable endpoints, versioning, error handling, and developer-friendly documentation.',
+        genre: 'Business',
+        cost_price: 210.00,
+        sell_price: 310.00,
+        img_path: 'https://images.unsplash.com/photo-1485217988980-11786ced9454?auto=format&fit=crop&w=800&q=80',
+        quantity: 20
+    }
+];
+
 function normalizePath(value) {
     return value?.replace(/\\/g, '/') || value;
+}
+
+async function seedSampleItems() {
+    for (const itemData of sampleItems) {
+        const item = await Item.create({
+            description: itemData.description,
+            description_text: itemData.description_text,
+            genre: itemData.genre,
+            cost_price: itemData.cost_price,
+            sell_price: itemData.sell_price,
+            img_path: itemData.img_path,
+            sale: itemData.sale || null
+        });
+        await Stock.create({
+            item_id: item.item_id,
+            quantity: itemData.quantity || 0
+        });
+        if (itemData.img_path) {
+            await ItemImage.create({
+                item_id: item.item_id,
+                file_path: itemData.img_path
+            });
+        }
+    }
 }
 
 // Get all items with stock and images
@@ -24,6 +105,13 @@ exports.getAllItems = async (req, res) => {
         }
         if (category) {
             where.genre = category;
+        }
+
+        if (!search && !category) {
+            const itemCount = await Item.count();
+            if (itemCount === 0) {
+                await seedSampleItems();
+            }
         }
 
         const items = await Item.findAll({
@@ -72,7 +160,7 @@ exports.getSingleItem = async (req, res) => {
 // Create item with stock and optional images
 exports.createItem = async (req, res, next) => {
     try {
-        const { description, description_text, cost_price, sell_price, quantity, img_path, genre } = req.body;
+        const { description, description_text, cost_price, sell_price, quantity, img_path, genre, sale } = req.body;
         const files = req.files || [];
         const imagePath = files.length ? normalizePath(files[0].path) : normalizePath(img_path) || null;
 
@@ -86,7 +174,8 @@ exports.createItem = async (req, res, next) => {
             genre: genre || null,
             cost_price,
             sell_price,
-            img_path: imagePath
+            img_path: imagePath,
+            sale: sale ? Number(sale) : null
         });
 
         await Stock.create({
@@ -117,7 +206,7 @@ exports.createItem = async (req, res, next) => {
 exports.updateItem = async (req, res, next) => {
     try {
         const { id } = req.params;
-        const { description, description_text, cost_price, sell_price, quantity, img_path, genre } = req.body;
+        const { description, description_text, cost_price, sell_price, quantity, img_path, genre, sale } = req.body;
         const files = req.files || [];
         const imagePath = files.length ? normalizePath(files[0].path) : normalizePath(img_path) || null;
 
@@ -130,7 +219,8 @@ exports.updateItem = async (req, res, next) => {
             description_text: description_text || null,
             genre: genre || null,
             cost_price,
-            sell_price
+            sell_price,
+            sale: sale ? Number(sale) : null
         };
         if (imagePath) {
             updateData.img_path = imagePath;

@@ -28,6 +28,11 @@ module.exports = (sequelize, DataTypes) => {
         img_path: {
             type: DataTypes.STRING,
             allowNull: true
+        },
+        sale: {
+            type: DataTypes.INTEGER,
+            allowNull: true,
+            defaultValue: null
         }
     }, {
         tableName: 'item',

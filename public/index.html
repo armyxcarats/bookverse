@@ -9,6 +9,8 @@
     .genre-group { margin-bottom: 36px; }
     .genre-group-title { margin: 0 0 16px; font-size: 1.5rem; color: #432222; }
     .book-card-genre { color: #7a5c3f; font-size: 0.9rem; margin: 8px 0; }
+    .book-card-price { margin: 12px 0 0; font-size: 1.1rem; font-weight: 700; color: #241f20; display: flex; align-items: center; gap: 10px; }
+    .original-price { text-decoration: line-through; opacity: 0.7; font-size: 0.95rem; color: #6f6f6f; }
     .book-card { cursor: pointer; }
     .book-preview-modal { position: fixed; inset: 0; display: none; align-items: center; justify-content: center; background: rgba(255,255,255,0.97); z-index: 50; }
     .book-preview-modal.open { display: flex; }
@@ -36,7 +38,7 @@
     </div>
 
     <nav class="category-nav">
-      <a href="#" class="nav-link active" data-section="collections">BOOKS</a>
+      <a href="#" class="nav-link active" data-section="books">BOOKS</a>
       <a href="#" class="nav-link" data-section="bestsellers">BESTSELLERS</a>
       <a href="#" class="nav-link" data-section="collections">COLLECTIONS</a>
       <a href="#" class="nav-link" data-section="book-reviews">BOOK REVIEWS</a>
@@ -47,12 +49,21 @@
   </header>
 
   <main>
-    <section class="trending-section" id="collections">
+    <section class="trending-section" id="books">
       <div class="trending-header">
-        <h2>Explore Bookverse</h2>
+        <h2>Browse All Books</h2>
         <button id="load-books" class="button button-secondary">Refresh</button>
       </div>
-      <div id="books" class="book-grid"></div>
+      <div id="booksGrid" class="book-grid"></div>
+    </section>
+
+    <section class="trending-section hidden-section" id="collections">
+      <div class="trending-header">
+        <h2>Collections</h2>
+      </div>
+      <p class="section-description">Explore books grouped by genre so you can discover titles by category and reading preference.</p>
+      <div id="collectionsThemeNav" class="collections-theme-nav"></div>
+      <div id="collectionsGrid" class="book-grid"></div>
     </section>
 
     <section class="trending-section hidden-section" id="bestsellers">
@@ -139,7 +150,9 @@
   <div id="cartToast" class="cart-toast hidden" role="status" aria-live="polite"></div>
 
   <script>
-    const booksContainer = document.getElementById('books');
+    const booksContainer = document.getElementById('booksGrid');
+    const collectionsContainer = document.getElementById('collectionsGrid');
+    const collectionsThemeNav = document.getElementById('collectionsThemeNav');
     const bestSellersContainer = document.getElementById('bestSellers');
     const newArrivalsContainer = document.getElementById('newArrivals');
     const saleBooksContainer = document.getElementById('saleBooks');
@@ -147,6 +160,7 @@
     const searchInput = document.querySelector('.search-bar input');
     const searchButton = document.querySelector('.search-button');
     let loadedItems = [];
+    let selectedCollectionGenre = 'All';
 
     const sampleBooks = [
       { id: 1, title: 'The Secret Chapter', author: 'A. Developer', genre: 'Fiction', sell_price: 24.99, description_text: 'A mysterious novel about a hidden manuscript that changes the life of a young reader. It blends humor, suspense, and subtle lessons for anyone who enjoys thoughtful fiction.', img_path: 'https://images.unsplash.com/photo-1512820790803-83ca734da794?auto=format&fit=crop&w=800&q=80', pages: 312, popularity: 85, isNew: false, isDelivered: true },
@@ -196,12 +210,19 @@
     }
 
     function addToCart(item) {
+      const user = getStoredUser();
+      if (!user) {
+        showCartToast('Please log in first before adding items to your cart.');
+        return;
+      }
+
       const cart = getCart();
       const existing = cart.find(c => c.item_id === item.item_id || c.item_id === item.id);
       const payload = {
         item_id: item.item_id || item.id,
         description: item.description || item.title,
         sell_price: item.sell_price || item.price || 0,
+        sale: Number(item.sale) || 0,
         img_path: item.img_path || item.image || '',
         quantity: 1
       };
@@ -221,10 +242,13 @@
       const description = item.description_text || 'No description available yet.';
       const snippet = description.length > 95 ? description.slice(0, 95) + '...' : description;
       const priceValue = item.sell_price ? Number(item.sell_price) : item.price ? Number(item.price) : 0;
-      const price = priceValue ? `₱${priceValue.toFixed(2)}` : 'Free';
+      const salePercentage = Number(item.sale) || 0;
+      const discountedPrice = salePercentage > 0 ? priceValue * (1 - salePercentage / 100) : priceValue;
+      const price = discountedPrice ? `₱${discountedPrice.toFixed(2)}` : 'Free';
+      const originalPrice = priceValue && salePercentage > 0 ? ` <span class="original-price">₱${priceValue.toFixed(2)}</span>` : '';
       const image = item.img_path || item.image || 'https://images.unsplash.com/photo-1512820790803-83ca734da794?auto=format&fit=crop&w=800&q=80';
       const pages = item.pages || item.Stock?.quantity || 'N/A';
-      const sale = item.sale ? `<span class="book-card-badge">${item.sale}% OFF</span>` : '';
+      const sale = salePercentage > 0 ? `<span class="book-card-badge">${salePercentage}% OFF</span>` : '';
       const genreLabel = item.genre ? `<div class="book-card-genre">${item.genre}</div>` : '';
       const itemData = encodeURIComponent(JSON.stringify(item));
       return `
@@ -237,6 +261,7 @@
               ${genreLabel}
               <p class="book-card-description">${snippet}</p>
               <div class="book-card-meta"><span>${pages} pages</span><span>⭐ 4.5</span></div>
+              <div class="book-card-price">${price}${originalPrice}</div>
               <div class="book-preview-buttons" style="margin-top: 16px; display:flex; gap:10px; flex-wrap:wrap;">
                 <button class="button button-primary" type="button" onclick="event.stopPropagation(); addToCart(JSON.parse(decodeURIComponent('${itemData}')))">Add to cart</button>
               </div>
@@ -255,7 +280,9 @@
       const author = item.author || item.subtitle || 'Unknown author';
       const genre = item.genre || 'General';
       const priceValue = item.sell_price ? Number(item.sell_price) : item.price ? Number(item.price) : 0;
-      const price = priceValue ? `₱${priceValue.toFixed(2)}` : 'Free';
+      const salePercentage = Number(item.sale) || 0;
+      const discountedPrice = salePercentage > 0 ? priceValue * (1 - salePercentage / 100) : priceValue;
+      const price = discountedPrice ? `₱${discountedPrice.toFixed(2)}` : 'Free';
       const description = item.description_text || 'No description available yet.';
 
       document.getElementById('previewImage').src = image;
@@ -312,7 +339,7 @@
       }
     });
 
-    function renderGenreCollections(items) {
+    function renderCollectionsPage(items, selectedGenre = selectedCollectionGenre) {
       const groups = items.reduce((acc, item) => {
         const genre = (item.genre || 'General').trim() || 'General';
         if (!acc[genre]) acc[genre] = [];
@@ -320,16 +347,42 @@
         return acc;
       }, {});
 
-      const sections = Object.keys(groups).sort().map(genre => `
-        <div class="genre-group">
-          <h3 class="genre-group-title">${genre}</h3>
-          <div class="book-grid">
-            ${groups[genre].map(renderBookCard).join('')}
-          </div>
-        </div>
-      `).join('');
+      const genres = ['All', ...Object.keys(groups).sort()];
+      selectedCollectionGenre = selectedGenre;
 
-      booksContainer.innerHTML = sections || '<p class="section-description">No books available yet.</p>';
+      if (collectionsThemeNav) {
+        collectionsThemeNav.innerHTML = genres.map(genre => `
+          <button type="button" class="theme-chip ${genre === selectedGenre ? 'active' : ''}" data-genre="${genre}">
+            ${genre}
+          </button>
+        `).join('');
+
+        collectionsThemeNav.querySelectorAll('.theme-chip').forEach(button => {
+          button.addEventListener('click', () => {
+            const genre = button.dataset.genre;
+            renderCollectionsPage(items, genre);
+          });
+        });
+      }
+
+      if (selectedGenre === 'All') {
+        const sections = Object.keys(groups).sort().map(genre => `
+          <div class="genre-group">
+            <h3 class="genre-group-title">${genre}</h3>
+            <div class="book-grid">
+              ${groups[genre].map(renderBookCard).join('')}
+            </div>
+          </div>
+        `).join('');
+
+        collectionsContainer.innerHTML = sections || '<p class="section-description">No books available yet.</p>';
+      } else {
+        const genreItems = groups[selectedGenre] || [];
+        const content = genreItems.length
+          ? `<div class="genre-group"><h3 class="genre-group-title">${selectedGenre}</h3><div class="book-grid">${genreItems.map(renderBookCard).join('')}</div></div>`
+          : '<p class="section-description">No books found under this theme.</p>';
+        collectionsContainer.innerHTML = content;
+      }
     }
 
     async function loadBooks() {
@@ -339,14 +392,16 @@
         const rows = Array.isArray(data) ? data : data.rows || data.items || data.data || [];
         const items = rows.length ? rows : sampleBooks;
         loadedItems = items;
-        renderGenreCollections(items);
+        renderBooks(items, booksContainer);
+        renderCollectionsPage(items);
         renderBestSellers(items);
         renderNewArrivals(items);
         renderSaleBooks(items);
         initReviewForm(items);
       } catch (error) {
         loadedItems = sampleBooks;
-        renderGenreCollections(sampleBooks);
+        renderBooks(sampleBooks, booksContainer);
+        renderCollectionsPage(sampleBooks);
         renderBestSellers(sampleBooks);
         renderNewArrivals(sampleBooks);
         renderSaleBooks(sampleBooks);
@@ -375,20 +430,23 @@
 
     function performSearch() {
       const q = (searchInput && searchInput.value || '').trim().toLowerCase();
+      const itemsToSearch = loadedItems.length ? loadedItems : sampleBooks;
       if (!q) {
-        renderGenreCollections(loadedItems.length ? loadedItems : sampleBooks);
-        renderBestSellers(loadedItems.length ? loadedItems : sampleBooks);
-        renderNewArrivals(loadedItems.length ? loadedItems : sampleBooks);
-        renderSaleBooks(loadedItems.length ? loadedItems : sampleBooks);
+        renderBooks(itemsToSearch, booksContainer);
+        renderCollectionsPage(itemsToSearch, selectedCollectionGenre);
+        renderBestSellers(itemsToSearch);
+        renderNewArrivals(itemsToSearch);
+        renderSaleBooks(itemsToSearch);
         return;
       }
-      const filtered = (loadedItems.length ? loadedItems : sampleBooks).filter(item => {
+      const filtered = itemsToSearch.filter(item => {
         const title = (item.description || item.title || '').toString().toLowerCase();
         const author = (item.author || item.subtitle || '').toString().toLowerCase();
         const genre = (item.genre || '').toString().toLowerCase();
         return title.includes(q) || author.includes(q) || genre.includes(q);
       });
-      renderGenreCollections(filtered);
+      renderBooks(filtered, booksContainer);
+      renderCollectionsPage(filtered, selectedCollectionGenre);
       renderBestSellers(filtered);
       renderNewArrivals(filtered);
       renderSaleBooks(filtered);
@@ -404,6 +462,7 @@
 
       userActions.innerHTML = `
         <span class="user-greeting">Hello, ${user.name || 'Customer'}</span>
+        ${user.role === 'admin' ? '<a href="/admin">Dashboard</a>' : ''}
         <a href="/profile">My Account</a>
         <a href="/cart" class="cart">Cart <span id="cartCount">0</span></a>
         <a href="#" id="logoutButton">Logout</a>

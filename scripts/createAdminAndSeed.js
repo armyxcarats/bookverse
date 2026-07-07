@@ -13,10 +13,15 @@ async function run() {
     let user = await db.User.findOne({ where: { email } });
     if (!user) {
       const hashed = await bcrypt.hash(password, 10);
-      user = await db.User.create({ name: 'Admin User', email, password: hashed });
+      user = await db.User.create({ name: 'Admin User', email, password: hashed, role: 'admin' });
       console.log(`Created admin user: ${email} / ${password}`);
     } else {
-      console.log(`Admin user already exists: ${email}`);
+      if (user.role !== 'admin') {
+        await user.update({ role: 'admin' });
+        console.log(`Promoted existing user to admin: ${email}`);
+      } else {
+        console.log(`Admin user already exists: ${email}`);
+      }
     }
 
     let customer = await db.Customer.findOne({ where: { user_id: user.id } });

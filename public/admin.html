@@ -56,6 +56,7 @@
       </div>
       <div class="form-row">
         <label>Genre<input id="m-genre" type="text" placeholder="e.g. Fiction, Science"></label>
+        <label>Sale %<input id="m-sale" type="number" min="0" max="90" placeholder="e.g. 25"></label>
       </div>
       <label>Description<textarea id="m-description" rows="4" placeholder="Write a short 2-3 sentence book description"></textarea></label>
       <label>Images (select multiple)<input id="m-images" type="file" multiple accept="image/png,image/jpeg"></label>
@@ -85,9 +86,37 @@
     let editingId = null;
 
     function getToken() { return localStorage.getItem('bookverseToken'); }
+    function getStoredUser() {
+      const raw = localStorage.getItem('bookverseUser');
+      return raw ? JSON.parse(raw) : null;
+    }
     function safeUrl(path) {
       if (!path) return '';
       return path.startsWith('http') || path.startsWith('/') ? path : '/' + path;
+    }
+
+    async function verifyAdminAccess() {
+      const token = getToken();
+      if (!token) return false;
+      const stored = getStoredUser();
+      if (stored && stored.role === 'admin') {
+        return true;
+      }
+      try {
+        const response = await $.ajax({
+          url: '/api/v1/me',
+          method: 'GET',
+          headers: { 'Authorization': `Bearer ${token}` },
+          dataType: 'json'
+        });
+        if (response && response.user && response.user.role === 'admin') {
+          localStorage.setItem('bookverseUser', JSON.stringify(response.user));
+          return true;
+        }
+      } catch (xhr) {
+        // ignore
+      }
+      return false;
     }
 
     function showExistingImages(images = []) {
@@ -110,8 +139,13 @@
       $('#m-cost').val(data.cost_price || '');
       $('#m-price').val(data.sell_price || '');
       $('#m-quantity').val(data.Stock ? data.Stock.quantity : (data.quantity||0));
+      $('#m-sale').val(data.sale != null ? data.sale : '');
       $('#m-images').val('');
-      showExistingImages(edit ? (data.ItemImages || []) : []);
+      const existingImages = edit ? (Array.isArray(data.ItemImages) ? data.ItemImages : []) : [];
+      if (edit && data.img_path && !existingImages.some(img => img.file_path === data.img_path)) {
+        existingImages.unshift({ file_path: data.img_path });
+      }
+      showExistingImages(existingImages);
       $('#modalMsg').hide();
       $('#editModal').css('display','flex');
     }
@@ -136,8 +170,13 @@
             { title: 'Cost', data: 'cost_price', render: v => v ? '₱'+Number(v).toFixed(2) : '' },
               { title: 'Sell Price', data: 'sell_price', render: v => v ? '₱'+Number(v).toFixed(2) : '' },
             { title: 'Qty', data: 'Stock.quantity', defaultContent: '0' },
+            { title: 'Sale', data: 'sale', render: v => v ? `${v}%` : 'No' },
             { title: 'Images', data: 'ItemImages', render: arr => Array.isArray(arr) ? arr.length : 0 },
-            { title: 'Actions', data: null, orderable:false, render: () => `<button class='editBtn'>Edit</button> <button class='delBtn'>Delete</button>` }
+            { title: 'Actions', data: null, orderable:false, render: (data, type, row) => {
+                const saleAction = row.sale ? `<button class='clearSaleBtn'>Clear Sale</button>` : `<button class='saleBtn'>Mark Sale</button>`;
+                return `<button class='editBtn'>Edit</button> <button class='delBtn'>Delete</button> ${saleAction}`;
+              }
+            }
           ]
         });
 
@@ -158,6 +197,45 @@
             table.row($(this).parents('tr')).remove().draw();
           }catch(e){ alert('Delete failed. Make sure you are logged in.'); }
         });
+        $('#itemsTable tbody').on('click','button.saleBtn', async function(){
+          const row = table.row($(this).parents('tr')).data();
+          const percent = prompt('Enter sale percentage (1-90):', row.sale || '25');
+          const value = percent ? Number(percent) : 0;
+          if (!Number.isInteger(value) || value < 1 || value > 90) {
+            alert('Sale percentage must be a number between 1 and 90.');
+            return;
+          }
+          try {
+            const token = getToken();
+            await $.ajax({
+              url: `/api/v1/items/${row.item_id}`,
+              method: 'PUT',
+              headers: { 'Authorization': `Bearer ${token}` },
+              data: JSON.stringify({ sale: value, description: row.description, description_text: row.description_text, genre: row.genre, cost_price: row.cost_price, sell_price: row.sell_price, quantity: row.Stock?.quantity || 0 }),
+              contentType: 'application/json'
+            });
+            loadItems();
+          } catch (e) {
+            alert('Mark sale failed. Make sure you are logged in.');
+          }
+        });
+        $('#itemsTable tbody').on('click','button.clearSaleBtn', async function(){
+          const row = table.row($(this).parents('tr')).data();
+          if (!confirm('Remove sale from this item?')) return;
+          try {
+            const token = getToken();
+            await $.ajax({
+              url: `/api/v1/items/${row.item_id}`,
+              method: 'PUT',
+              headers: { 'Authorization': `Bearer ${token}` },
+              data: JSON.stringify({ sale: null, description: row.description, description_text: row.description_text, genre: row.genre, cost_price: row.cost_price, sell_price: row.sell_price, quantity: row.Stock?.quantity || 0 }),
+              contentType: 'application/json'
+            });
+            loadItems();
+          } catch (e) {
+            alert('Clear sale failed. Make sure you are logged in.');
+          }
+        });
       } else {
         table.clear().rows.add(items).draw();
       }
@@ -165,6 +243,8 @@
 
     $('#addBtn').on('click', ()=> showModal(false,{}));
     $('#refreshBtn').on('click', loadItems);
+    $('#itemsBtn').on('click', showItemsSection);
+    $('#ordersBtn').on('click', showOrdersSection);
     $('#usersBtn').on('click', showUsersSection);
     $('#cancelBtn').on('click', hideModal);
 
@@ -173,6 +253,7 @@
       const cost = $('#m-cost').val();
       const price = $('#m-price').val();
       const qty = $('#m-quantity').val();
+      const sale = $('#m-sale').val();
       const files = $('#m-images')[0].files;
 
       if (!title || !cost || !price) { $('#modalMsg').text('Title, cost and sell price are required').show(); return; }
@@ -184,6 +265,7 @@
       form.append('cost_price', cost);
       form.append('sell_price', price);
       form.append('quantity', qty || 0);
+      form.append('sale', sale ? Number(sale) : '');
       for (let i = 0; i < files.length; i++) {
         form.append('images', files[i]);
       }
@@ -246,14 +328,19 @@
       loadUsers();
     }
 
-    $(document).ready(()=>{
+    async function initializeAdminPage() {
       setAuthUI();
-      if (getToken()) {
+      const isAdmin = await verifyAdminAccess();
+      if (isAdmin) {
         showAdminUI();
       } else {
         hideAdminUI();
         showLoginModal();
       }
+    }
+
+    $(document).ready(async ()=>{
+      await initializeAdminPage();
     });
 
     function setAuthUI() {
@@ -308,7 +395,7 @@
             { title: 'Placed', data: 'date_placed' },
             { title: 'Shipped', data: 'date_shipped' },
             { title: 'Status', data: 'status', render: (v, t, row) => {
-                const statuses = ['pending', 'shipping', 'on delivery', 'cancelled', 'delivered'];
+                const statuses = ['pending', 'delivered', 'cancelled'];
                 return `<select class="status-select" data-order-id="${row.order_id}">${statuses.map(s => `<option value="${s}" ${s === v ? 'selected' : ''}>${s}</option>`).join('')}</select>`;
               }
             },
@@ -527,6 +614,10 @@
           data: JSON.stringify({ email, password }),
           dataType: 'json'
         });
+        if (!data.user || data.user.role !== 'admin') {
+          $('#loginMsg').text('Admin access required. Please use an admin account.').show();
+          return;
+        }
         localStorage.setItem('bookverseToken', data.token);
         localStorage.setItem('bookverseUser', JSON.stringify(data.user));
         hideLoginModal();

